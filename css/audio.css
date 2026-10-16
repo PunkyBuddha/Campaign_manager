@@ -1,0 +1,153 @@
+/* ------------------------------------------------------------- */
+/* Estúdio de Áudio & Ambiência Sonora                          */
+/* ------------------------------------------------------------- */
+.audio-studio-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+@media (max-width: 900px) {
+  .audio-studio-grid { grid-template-columns: 1fr; }
+}
+
+.ambient-channels-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ambient-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.ambient-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.ambient-card.active {
+  border-color: var(--border-gold-bright);
+  background: linear-gradient(145deg, rgba(229, 169, 60, 0.12), rgba(22, 30, 46, 0.9));
+  box-shadow: 0 0 20px rgba(229, 169, 60, 0.2);
+}
+
+.ambient-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.ambient-icon {
+  font-size: 1.8rem;
+  width: 48px;
+  height: 48px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  transition: transform 0.2s ease;
+}
+
+.ambient-card.active .ambient-icon {
+  border-color: var(--border-gold);
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(229, 169, 60, 0.4);
+}
+
+.ambient-title {
+  font-family: var(--font-fantasy);
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.ambient-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ambient-volume-slider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.ambient-volume-slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent-gold);
+}
+
+/* SFX Board */
+.sfx-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sfx-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.sfx-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 0.5rem;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+}
+.sfx-btn:hover {
+  background: rgba(229, 169, 60, 0.15);
+  border-color: var(--border-gold);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(229, 169, 60, 0.2);
+}
+.sfx-btn:active {
+  transform: scale(0.96);
+}
+
+.sfx-icon {
+  font-size: 1.4rem;
+}
+
+/* Custom MP3 Player Box */
+.custom-music-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+}
+.custom-music-box h4 {
+  font-family: var(--font-fantasy);
+  font-size: 1.1rem;
+  color: var(--text-gold);
+  margin-bottom: 0.5rem;
+}
+.custom-music-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}

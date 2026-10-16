@@ -1,0 +1,231 @@
+/* ------------------------------------------------------------- */
+/* Bestiário & Statblocks Autênticos D&D 5e                      */
+/* ------------------------------------------------------------- */
+.filters-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input-wrap {
+  flex: 2;
+  min-width: 240px;
+}
+
+.filter-select-wrap {
+  flex: 1;
+  min-width: 140px;
+}
+
+.monsters-count-badge {
+  font-size: 0.82rem;
+  color: var(--text-gold);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* Monster Cards */
+.monster-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  background: linear-gradient(145deg, #161e2e, #111724);
+  position: relative;
+  overflow: hidden;
+}
+
+.monster-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--combat-red);
+}
+
+.monster-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.85rem;
+}
+
+.monster-name {
+  font-family: var(--font-fantasy);
+  font-size: 1.2rem;
+  color: #fff;
+  margin-bottom: 0.2rem;
+}
+
+.monster-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.cr-badge {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05));
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-family: var(--font-code);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+}
+
+.monster-quick-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.monster-source-badge {
+  margin-bottom: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* ------------------------------------------------------------- */
+/* Statblock D&D 5e Tradicional (Estilo Livro Oficial)          */
+/* ------------------------------------------------------------- */
+.statblock-dnd {
+  background: #181d26;
+  border: 2px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-ui);
+}
+
+.statblock-header {
+  margin-bottom: 0.75rem;
+}
+
+.statblock-title {
+  font-family: var(--font-fantasy);
+  font-size: 1.9rem;
+  color: #fbbf24;
+  letter-spacing: 0.5px;
+}
+
+.statblock-meta {
+  font-style: italic;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.statblock-source {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+}
+
+.statblock-divider {
+  height: 3px;
+  background: linear-gradient(to right, #b45309, #d97706, transparent);
+  margin: 0.85rem 0;
+  border-radius: 2px;
+}
+
+.statblock-vitals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+.statblock-vitals strong {
+  color: #fbbf24;
+}
+
+.statblock-ability-table {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.75rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.stat-col-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-gold);
+}
+.stat-col-val {
+  font-family: var(--font-code);
+  font-size: 0.95rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+.statblock-attributes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+.statblock-attributes strong {
+  color: #fbbf24;
+}
+
+.statblock-section {
+  margin-top: 1rem;
+}
+.statblock-section h3 {
+  font-family: var(--font-fantasy);
+  font-size: 1.25rem;
+  color: #fbbf24;
+  border-bottom: 1px solid rgba(229, 169, 60, 0.3);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.statblock-action {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 0.85rem;
+  color: #cbd5e1;
+}
+.statblock-action strong em {
+  font-style: normal;
+  color: #fff;
+}
+
+.statblock-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+/* Paginação */
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.pagination-info {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}

@@ -1,0 +1,15 @@
+# Logs e temporários
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Arquivos brutos > 100MB (rastreados pelas partes .part1 e .part2 para conformidade com o GitHub)
+Base de dados/D&D/Caldeirão de Tasha para Tudo.pdf
+Base de dados/D&D/D&D 5E - Fora do Abismo (v1.0)
+Base de dados/D&D/D&D 5E - Manual dos Monstros.pdf
+
+# Ferramentas de extração temporárias
+tools/
+*.ps1
+*.txt

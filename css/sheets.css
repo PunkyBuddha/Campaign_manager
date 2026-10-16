@@ -1,0 +1,470 @@
+/* ------------------------------------------------------------- */
+/* Fichas dos Jogadores - Estilos de Cartões e Modal D&D 5e     */
+/* ------------------------------------------------------------- */
+.character-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  background: linear-gradient(145deg, #161e2e, #111724);
+  position: relative;
+  overflow: hidden;
+}
+
+.character-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent-gold);
+}
+
+.character-card-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.character-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  border: 2px solid var(--border-gold);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.character-info {
+  flex: 1;
+}
+
+.character-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.character-name {
+  font-family: var(--font-fantasy);
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.character-sub {
+  color: var(--text-gold);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.character-player {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.character-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.stat-pill {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-family: var(--font-code);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+}
+.stat-value.gold {
+  color: #fbbf24;
+}
+
+.hp-section {
+  margin-bottom: 1.1rem;
+}
+
+.hp-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+.hp-text strong {
+  color: #fff;
+  font-family: var(--font-code);
+}
+.hp-temp {
+  color: #38bdf8;
+  font-size: 0.75rem;
+}
+
+.hp-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.hp-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 0.85rem;
+}
+
+/* ------------------------------------------------------------- */
+/* Modal Detalhado da Ficha D&D 5e                               */
+/* ------------------------------------------------------------- */
+.sheet-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sheet-header {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.sheet-avatar-img {
+  width: 100px;
+  height: 100px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  border: 2px solid var(--border-gold);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+
+.sheet-title-info {
+  flex: 1;
+}
+
+.sheet-hero-row {
+  margin-bottom: 0.75rem;
+}
+
+.sheet-hero-name {
+  font-family: var(--font-fantasy);
+  font-size: 1.8rem;
+  color: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.sheet-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sheet-quick-vitals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.vital-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.vital-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.vital-value {
+  font-family: var(--font-code);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #fff;
+}
+.vital-value.gold {
+  color: #fbbf24;
+}
+
+.sheet-actions-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Painel de Pontos de Vida */
+.sheet-hp-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.sheet-hp-display {
+  flex: 1;
+  min-width: 250px;
+}
+
+.hp-info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.hp-adjust-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Grade de 6 Atributos D&D 5e */
+.attributes-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.75rem;
+}
+@media (max-width: 768px) {
+  .attributes-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.attr-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 0.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+.attr-box:hover {
+  border-color: var(--border-gold);
+  background: #1e293b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(229, 169, 60, 0.15);
+}
+
+.attr-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.attr-mod {
+  font-family: var(--font-code);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.attr-score {
+  font-size: 0.8rem;
+  color: var(--text-gold);
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  padding: 0.1rem 0.5rem;
+  display: inline-block;
+  margin-top: 0.2rem;
+}
+
+.attr-roll-hint {
+  font-size: 0.65rem;
+  color: var(--accent-cyan);
+  margin-top: 0.35rem;
+  opacity: 0.8;
+}
+
+/* Abas internas */
+.sheet-tabs-nav {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sheet-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.sheet-tab-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.sheet-tab-btn.active {
+  color: var(--text-gold);
+  background: rgba(217, 119, 6, 0.15);
+  border: 1px solid var(--border-gold);
+}
+
+.sheet-tab-content {
+  min-height: 180px;
+}
+
+/* Ataques */
+.attacks-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.attack-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.attack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.attack-damage {
+  font-family: var(--font-code);
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+/* Talentos & Características */
+.traits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.trait-item {
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--accent-gold);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0.65rem 0.85rem;
+}
+.trait-name {
+  font-weight: 700;
+  color: #fff;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+.trait-desc {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+/* Espaços de Magia */
+.spell-slots-tracker {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+.spell-slots-tracker h4 {
+  font-size: 0.9rem;
+  color: var(--text-gold);
+  margin-bottom: 0.6rem;
+}
+.slots-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.slot-badge {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.slot-badge strong {
+  font-family: var(--font-code);
+  color: #c084fc;
+}
+
+.spells-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+.spell-card-mini {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+}
+.spell-card-mini-title {
+  font-weight: 700;
+  color: #e9d5ff;
+  font-size: 0.9rem;
+}
+.spell-card-mini-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+.spell-card-mini-desc {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+}
+
+.inventory-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #cbd5e1;
+}

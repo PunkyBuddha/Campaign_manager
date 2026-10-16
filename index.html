@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grimório do Mestre - Gerenciador de Campanhas RPG D&D 5e</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/sheets.css">
+  <link rel="stylesheet" href="css/bestiary.css">
+  <link rel="stylesheet" href="css/combat.css">
+  <link rel="stylesheet" href="css/maps.css">
+  <link rel="stylesheet" href="css/audio.css">
+</head>
+<body>
+
+  <!-- ============================================================= -->
+  <!-- Cabeçalho Principal & Navegação                               -->
+  <!-- ============================================================= -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-icon">📜</div>
+        <div>
+          <span class="brand-title">Grimório do Mestre</span>
+          <span class="brand-badge">D&D 5e Studio</span>
+        </div>
+      </div>
+
+      <!-- Seletor de Campanha Ativa -->
+      <div class="campaign-switcher-wrap">
+        <select id="global-campaign-select" onchange="App.switchCampaign(this.value)">
+          <!-- Preenchido via App.renderCampaignSelector() -->
+        </select>
+      </div>
+
+      <!-- Abas de Navegação -->
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="dashboard" onclick="App.switchTab('dashboard')">
+          <span>🏰</span> Painel
+        </button>
+        <button class="nav-tab" data-tab="sheets" onclick="App.switchTab('sheets')">
+          <span>🛡️</span> Fichas
+        </button>
+        <button class="nav-tab" data-tab="bestiary" onclick="App.switchTab('bestiary')">
+          <span>🐉</span> Bestiário
+        </button>
+        <button class="nav-tab" data-tab="combat" onclick="App.switchTab('combat')">
+          <span>⚔️</span> Combate
+        </button>
+        <button class="nav-tab" data-tab="maps" onclick="App.switchTab('maps')">
+          <span>🗺️</span> Mapas
+        </button>
+        <button class="nav-tab" data-tab="audio" onclick="App.switchTab('audio')">
+          <span>🎵</span> Ambiência
+        </button>
+        <button class="nav-tab" data-tab="database" onclick="App.switchTab('database')">
+          <span>📖</span> Grimório & Itens
+        </button>
+        <button class="nav-tab" data-tab="settings" onclick="App.switchTab('settings')">
+          <span>⚙️</span> Backup
+        </button>
+      </nav>
+
+      <!-- Botão da Bandeja de Dados -->
+      <div class="header-right">
+        <button class="btn btn-outline btn-sm" onclick="App.toggleDiceDrawer()" title="Atalho: Tecla D">
+          🎲 Dados (D)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================= -->
+  <!-- Conteúdo Principal                                            -->
+  <!-- ============================================================= -->
+  <main class="app-main">
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 1. Aba: Painel do Mestre (Dashboard)                        -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-dashboard" class="tab-page">
+      <div class="dash-hero-banner">
+        <img id="dash-banner-img" class="dash-banner-img" src="assets/banner.jpg" alt="Campanha Ativa" />
+        <div class="dash-banner-overlay">
+          <div class="dash-campaign-level" id="dash-campaign-level">Níveis 1 ao 5</div>
+          <h1 class="dash-campaign-title" id="dash-campaign-title">A Mina Perdida de Phandelver</h1>
+          <p class="dash-campaign-desc" id="dash-campaign-desc"></p>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="card">
+          <div class="page-header-row" style="margin-bottom: 0.85rem;">
+            <h3 class="page-title" style="font-size: 1.3rem;">📜 Diário da Campanha & Anotações de Sessão</h3>
+            <button class="btn btn-sm btn-primary" onclick="App.saveDashboardNotes()">💾 Salvar Anotações</button>
+          </div>
+          <textarea id="dash-notes-textarea" class="textarea" rows="14" placeholder="Escreva aqui os acontecimentos da sessão, ganchos de trama, pistas e lembretes..."></textarea>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <div class="card">
+            <div class="page-header-row" style="margin-bottom: 0.75rem;">
+              <h3 class="page-title" style="font-size: 1.2rem;">🛡️ Grupo de Aventureiros</h3>
+              <button class="btn btn-xs btn-outline" onclick="App.switchTab('sheets')">Ver Todos</button>
+            </div>
+            <div id="dash-party-summary">
+              <!-- Preenchido via App.renderDashboard() -->
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="page-title" style="font-size: 1.15rem; margin-bottom: 0.75rem;">⚡ Ações Rápidas do Mestre</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <button class="btn btn-combat" onclick="App.switchTab('combat'); CombatModule.addAllParty();">
+                ⚔️ Iniciar Combate com o Grupo
+              </button>
+              <button class="btn btn-secondary" onclick="App.switchTab('maps');">
+                🗺️ Abrir Mapa da Região
+              </button>
+              <button class="btn btn-secondary" onclick="App.switchTab('bestiary');">
+                🐉 Consultar Livro dos Monstros
+              </button>
+              <button class="btn btn-secondary" onclick="App.switchTab('audio'); AudioStudio.toggleChannel('rain');">
+                🌧️ Ativar Som de Chuva & Tempestade
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 2. Aba: Fichas dos Jogadores                                -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-sheets" class="tab-page" style="display: none;">
+      <div class="page-header-row">
+        <div>
+          <h2 class="page-title">Fichas dos Jogadores</h2>
+          <p class="page-subtitle">Gerencie os heróis da campanha, atributos, equipamentos, magias e pontos de vida.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-combat" onclick="CombatModule.addAllParty(); App.switchTab('combat');">
+            ⚔️ Enviar Todo o Grupo ao Combate
+          </button>
+          <button class="btn btn-primary" onclick="SheetsModule.openCreateModal()">
+            + Nova Ficha de Personagem
+          </button>
+        </div>
+      </div>
+
+      <div id="players-grid" class="grid-cards">
+        <!-- Preenchido dinamicamente via SheetsModule.render() -->
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 3. Aba: Bestiário & Base de Dados de Monstros               -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-bestiary" class="tab-page" style="display: none;">
+      <div class="page-header-row">
+        <div>
+          <h2 class="page-title">Bestiário & Base de Monstros</h2>
+          <p class="page-subtitle">Mais de 1.000 criaturas D&D 5e prontas para consulta, rolagem de ataque e combate imediato.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary" onclick="BestiaryModule.openBulkImportModal()">
+            📥 Importar em Lote (JSON)
+          </button>
+          <button class="btn btn-primary" onclick="BestiaryModule.openCreateModal()">
+            + Cadastrar Novo Monstro
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros -->
+      <div class="filters-bar">
+        <div class="search-input-wrap">
+          <input type="text" id="monster-search" class="input" placeholder="🔍 Buscar por nome do monstro ou raça..." oninput="BestiaryModule.applyFilters()" />
+        </div>
+
+        <div class="filter-select-wrap">
+          <select id="monster-type-filter" class="select" onchange="BestiaryModule.applyFilters()">
+            <option value="ALL">Todos os Tipos</option>
+            <option value="Humanoide">Humanoide</option>
+            <option value="Besta">Besta</option>
+            <option value="Dragão">Dragão</option>
+            <option value="Morto-vivo">Morto-vivo</option>
+            <option value="Monstruosidade">Monstruosidade</option>
+            <option value="Corruptor">Corruptor</option>
+            <option value="Aberração">Aberração</option>
+            <option value="Elemental">Elemental</option>
+            <option value="Gigante">Gigante</option>
+            <option value="Fada">Fada</option>
+            <option value="Constructo">Constructo</option>
+            <option value="Limo">Limo</option>
+            <option value="Planta">Planta</option>
+          </select>
+        </div>
+
+        <div class="filter-select-wrap">
+          <select id="monster-cr-filter" class="select" onchange="BestiaryModule.applyFilters()">
+            <option value="ALL">Qualquer ND (CR)</option>
+            <option value="0">ND 0</option>
+            <option value="1/8">ND 1/8</option>
+            <option value="1/4">ND 1/4</option>
+            <option value="1/2">ND 1/2</option>
+            <option value="1">ND 1</option>
+            <option value="2">ND 2</option>
+            <option value="3">ND 3</option>
+            <option value="4">ND 4</option>
+            <option value="5">ND 5</option>
+            <option value="high">ND 10 ou mais</option>
+          </select>
+        </div>
+
+        <div class="filter-select-wrap">
+          <select id="monster-source-filter" class="select" onchange="BestiaryModule.applyFilters()">
+            <option value="ALL">Todas as Fontes</option>
+            <option value="Monster Manual">Monster Manual</option>
+            <option value="Volo">Volo's Guide</option>
+            <option value="Mordenkainen">Mordenkainen</option>
+          </select>
+        </div>
+
+        <div class="monsters-count-badge" id="monsters-count-label">
+          Calculando criaturas...
+        </div>
+      </div>
+
+      <!-- Grade de Monstros -->
+      <div id="monsters-grid" class="grid-cards">
+        <!-- Preenchido via BestiaryModule.render() -->
+      </div>
+
+      <!-- Paginação -->
+      <div id="monsters-pagination" class="pagination-container">
+        <!-- Preenchido via BestiaryModule.render() -->
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 4. Aba: Rastreador de Combate & Iniciativa                  -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-combat" class="tab-page" style="display: none;">
+      <div class="page-header-row">
+        <div>
+          <h2 class="page-title">Rastreador de Iniciativa & Combate</h2>
+          <p class="page-subtitle">Acompanhe a ordem de turnos, pontos de vida, condições ativas e fichas dos combatentes.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary" onclick="CombatModule.addAllParty()">
+            🛡️ Puxar Jogadores
+          </button>
+          <button class="btn btn-secondary" onclick="App.switchTab('bestiary')">
+            🐉 Adicionar Monstro
+          </button>
+          <button class="btn btn-secondary" onclick="CombatModule.addCustomCombatant()">
+            + NPC / Inimigo Rápido
+          </button>
+          <button class="btn btn-danger" onclick="CombatModule.clearCombat()">
+            Limpar Combate
+          </button>
+        </div>
+      </div>
+
+      <!-- Controles Superiores de Fluxo de Turno -->
+      <div class="combat-top-controls">
+        <div class="combat-turn-status">
+          <span class="round-pill" id="combat-round-badge">Rodada 1</span>
+          <span class="turn-name-highlight" id="combat-current-turn-name">Turno de: Ninguém</span>
+        </div>
+
+        <div class="combat-flow-actions">
+          <button class="btn btn-secondary" onclick="CombatModule.prevTurn()">
+            ◀ Turno Anterior
+          </button>
+          <button class="btn btn-combat" onclick="CombatModule.nextTurn()">
+            Próximo Turno ▶
+          </button>
+          <button class="btn btn-primary" onclick="CombatModule.rollAllInitiatives()">
+            🎲 Rolar Iniciativa de Todos
+          </button>
+          <button class="btn btn-outline" onclick="CombatModule.rollMonsterInitiatives()">
+            🎲 Rolar Monstros
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista de Combatentes Ordenada por Iniciativa -->
+      <div id="combat-list" class="combat-list">
+        <!-- Preenchido dinamicamente via CombatModule.render() -->
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 5. Aba: Módulo de Mapas & Pins de História                  -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-maps" class="tab-page" style="display: none;">
+      <div class="map-studio-container">
+        <!-- Barra de Ferramentas do Mapa -->
+        <div class="map-toolbar">
+          <div class="map-selector-wrap">
+            <label>🗺️ Mapa Ativo:</label>
+            <select id="map-select" class="select" onchange="MapsModule.selectMap(this.value)">
+              <!-- Preenchido via MapsModule.loadCampaignMaps() -->
+            </select>
+          </div>
+
+          <div class="map-controls-group">
+            <button class="btn btn-sm btn-outline" onclick="MapsModule.zoomIn()" title="Aumentar Zoom">🔍 +</button>
+            <span class="zoom-badge" id="map-zoom-label">100%</span>
+            <button class="btn btn-sm btn-outline" onclick="MapsModule.zoomOut()" title="Diminuir Zoom">🔍 -</button>
+            <button class="btn btn-sm btn-secondary" onclick="MapsModule.resetView()" title="Centralizar">↺ Centralizar</button>
+            
+            <button class="btn btn-sm btn-primary" id="btn-toggle-pin-mode" onclick="MapsModule.toggleAddPinMode()">
+              📍 Adicionar Pin
+            </button>
+
+            <label class="btn btn-sm btn-secondary" style="cursor: pointer;">
+              📤 Enviar Novo Mapa
+              <input type="file" accept="image/*" style="display: none;" onchange="MapsModule.handleCustomMapUpload(this.files[0])" />
+            </label>
+
+            <button class="btn btn-sm btn-outline" onclick="MapsModule.toggleFullscreen()" title="Modo Apresentação">
+              ⛶ Tela Cheia
+            </button>
+          </div>
+        </div>
+
+        <!-- Viewport Interativo -->
+        <div class="map-viewport-wrapper" id="map-viewport-wrapper">
+          <div class="map-viewport" id="map-viewport">
+            <div class="map-viewport-content" id="map-viewport-content">
+              <img id="map-image" class="map-image-layer" src="assets/maps/phandalin_map.jpg" alt="Mapa RPG" />
+              <div id="map-pins-layer" class="map-pins-layer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 6. Aba: Estúdio de Áudio & Ambiência Sonora                 -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-audio" class="tab-page" style="display: none;">
+      <div class="page-header-row">
+        <div>
+          <h2 class="page-title">Estúdio de Áudio & Ambiência Sonora</h2>
+          <p class="page-subtitle">Sons procedurais que rodam 100% offline no navegador sem precisar baixar nada, mais efeitos instantâneos para o combate.</p>
+        </div>
+      </div>
+
+      <div class="audio-studio-grid">
+        <!-- Canais de Ambiência Procedural -->
+        <div class="ambient-channels-panel">
+          <div class="card" style="margin-bottom: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <strong>Volume Geral do Mestre</strong>
+              <input type="range" min="0" max="1" step="0.05" value="0.7" oninput="AudioStudio.setMasterVolume(this.value)" style="width: 200px; accent-color: var(--accent-gold);" />
+            </div>
+          </div>
+
+          <div class="ambient-cards-grid">
+            <!-- Chuva -->
+            <div class="ambient-card" id="ch-card-rain">
+              <div class="ambient-card-top">
+                <div class="ambient-icon">🌧️</div>
+                <div>
+                  <div class="ambient-title">Chuva & Tempestade</div>
+                  <div class="ambient-sub">Gotas contínuas e trovões distantes</div>
+                </div>
+              </div>
+              <div class="ambient-volume-slider">
+                <button class="btn btn-sm btn-outline" onclick="const act = AudioStudio.toggleChannel('rain'); this.closest('.ambient-card').classList.toggle('active', act); this.innerText = act ? 'Parar' : 'Tocar';">Tocar</button>
+                <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="AudioStudio.setChannelVolume('rain', this.value)" />
+              </div>
+            </div>
+
+            <!-- Fogueira -->
+            <div class="ambient-card" id="ch-card-fire">
+              <div class="ambient-card-top">
+                <div class="ambient-icon">🔥</div>
+                <div>
+                  <div class="ambient-title">Fogueira de Acampamento</div>
+                  <div class="ambient-sub">Estalos de madeira e brasa viva</div>
+                </div>
+              </div>
+              <div class="ambient-volume-slider">
+                <button class="btn btn-sm btn-outline" onclick="const act = AudioStudio.toggleChannel('fire'); this.closest('.ambient-card').classList.toggle('active', act); this.innerText = act ? 'Parar' : 'Tocar';">Tocar</button>
+                <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="AudioStudio.setChannelVolume('fire', this.value)" />
+              </div>
+            </div>
+
+            <!-- Vento da Masmorra -->
+            <div class="ambient-card" id="ch-card-wind">
+              <div class="ambient-card-top">
+                <div class="ambient-icon">🌬️</div>
+                <div>
+                  <div class="ambient-title">Vento & Cripta Sombria</div>
+                  <div class="ambient-sub">Uivos graves de corredores de pedra</div>
+                </div>
+              </div>
+              <div class="ambient-volume-slider">
+                <button class="btn btn-sm btn-outline" onclick="const act = AudioStudio.toggleChannel('wind'); this.closest('.ambient-card').classList.toggle('active', act); this.innerText = act ? 'Parar' : 'Tocar';">Tocar</button>
+                <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="AudioStudio.setChannelVolume('wind', this.value)" />
+              </div>
+            </div>
+
+            <!-- Tambores de Guerra -->
+            <div class="ambient-card" id="ch-card-drums">
+              <div class="ambient-card-top">
+                <div class="ambient-icon">🥁</div>
+                <div>
+                  <div class="ambient-title">Tambores de Guerra</div>
+                  <div class="ambient-sub">Batidas marciais ritualísticas orcs</div>
+                </div>
+              </div>
+              <div class="ambient-volume-slider">
+                <button class="btn btn-sm btn-outline" onclick="const act = AudioStudio.toggleChannel('drums'); this.closest('.ambient-card').classList.toggle('active', act); this.innerText = act ? 'Parar' : 'Tocar';">Tocar</button>
+                <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="AudioStudio.setChannelVolume('drums', this.value)" />
+              </div>
+            </div>
+
+            <!-- Caverna Mística -->
+            <div class="ambient-card" id="ch-card-cavern">
+              <div class="ambient-card-top">
+                <div class="ambient-icon">🔮</div>
+                <div>
+                  <div class="ambient-title">Ressonância Mística</div>
+                  <div class="ambient-sub">Harmônicos etéreos arcanos</div>
+                </div>
+              </div>
+              <div class="ambient-volume-slider">
+                <button class="btn btn-sm btn-outline" onclick="const act = AudioStudio.toggleChannel('cavern'); this.closest('.ambient-card').classList.toggle('active', act); this.innerText = act ? 'Parar' : 'Tocar';">Tocar</button>
+                <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="AudioStudio.setChannelVolume('cavern', this.value)" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Músicas do Computador -->
+          <div class="custom-music-box">
+            <h4>🎵 Carregar Minhas Próprias Músicas (MP3 / WAV)</h4>
+            <p class="text-muted" style="font-size: 0.85rem;">Selecione qualquer música do seu computador para tocar em loop durante a sessão:</p>
+            <div class="custom-music-controls">
+              <input type="file" accept="audio/*" class="input" style="max-width: 300px;" onchange="if(this.files[0]) AudioStudio.playUserAudio(this.files[0])" />
+              <button class="btn btn-secondary" onclick="AudioStudio.pauseUserAudio()">Pausar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Painel de Efeitos Sonoros Instantâneos (SFX) -->
+        <div class="card sfx-panel">
+          <h3 class="page-title" style="font-size: 1.25rem;">⚡ Efeitos Sonoros (SFX)</h3>
+          <p class="text-muted" style="font-size: 0.82rem;">Dispare efeitos dramáticos em tempo real durante o combate:</p>
+
+          <div class="sfx-buttons-grid">
+            <button class="sfx-btn" onclick="AudioStudio.playSFX('slash')">
+              <span class="sfx-icon">⚔️</span>
+              <span>Golpe de Espada</span>
+            </button>
+            <button class="sfx-btn" onclick="AudioStudio.playSFX('fireball')">
+              <span class="sfx-icon">💥</span>
+              <span>Bola de Fogo</span>
+            </button>
+            <button class="sfx-btn" onclick="AudioStudio.playSFX('critical')">
+              <span class="sfx-icon">⭐</span>
+              <span>Acerto Crítico!</span>
+            </button>
+            <button class="sfx-btn" onclick="AudioStudio.playSFX('miss')">
+              <span class="sfx-icon">💨</span>
+              <span>Falha / Erro</span>
+            </button>
+            <button class="sfx-btn" onclick="AudioStudio.playSFX('dice')">
+              <span class="sfx-icon">🎲</span>
+              <span>Dados Rolando</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 7. Aba: Grimório de Magias & Itens Mágicos                  -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-database" class="tab-page" style="display: none;">
+      <div class="page-header-row">
+        <div>
+          <h2 class="page-title">Grimório de Magias & Itens Mágicos</h2>
+          <p class="page-subtitle">Biblioteca de 468 magias e 441 itens mágicos do D&D 5e extraídos dos seus manuais.</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <!-- Magias -->
+        <div class="card">
+          <h3 class="page-title" style="font-size: 1.25rem; margin-bottom: 0.85rem;">✨ Magias (468)</h3>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <input type="text" id="spells-search" class="input input-sm" placeholder="🔍 Buscar magia..." oninput="App.filterSpells()" />
+            <select id="spells-level-filter" class="select input-sm" style="width: 140px;" onchange="App.filterSpells()">
+              <option value="ALL">Todos Círculos</option>
+              <option value="Truque">Truques</option>
+              <option value="1">1º Círculo</option>
+              <option value="2">2º Círculo</option>
+              <option value="3">3º Círculo</option>
+              <option value="4">4º Círculo</option>
+              <option value="5">5º Círculo</option>
+              <option value="6">6º Círculo</option>
+              <option value="7">7º Círculo</option>
+              <option value="8">8º Círculo</option>
+              <option value="9">9º Círculo</option>
+            </select>
+          </div>
+          <div id="spells-results-grid" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 550px; overflow-y: auto;"></div>
+        </div>
+
+        <!-- Itens Mágicos -->
+        <div class="card">
+          <h3 class="page-title" style="font-size: 1.25rem; margin-bottom: 0.85rem;">💎 Itens Mágicos (441)</h3>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <input type="text" id="items-search" class="input input-sm" placeholder="🔍 Buscar item mágico..." oninput="App.filterItems()" />
+            <select id="items-rarity-filter" class="select input-sm" style="width: 140px;" onchange="App.filterItems()">
+              <option value="ALL">Todas Raridades</option>
+              <option value="Comum">Comum</option>
+              <option value="Incomum">Incomum</option>
+              <option value="Raro">Raro</option>
+              <option value="Muito Raro">Muito Raro</option>
+              <option value="Lendário">Lendário</option>
+            </select>
+          </div>
+          <div id="items-results-grid" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 550px; overflow-y: auto;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- -->
+    <!-- 8. Aba: Backup & Configurações                              -->
+    <!-- ----------------------------------------------------------- -->
+    <section id="tab-settings" class="tab-page" style="display: none;">
+      <div class="page-header-row">
+        <div>
+          <h2 class="page-title">Backup & Segurança dos Dados</h2>
+          <p class="page-subtitle">Todos os seus personagens, monstros criados, anotações e mapas ficam salvos localmente no seu computador.</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <div class="card">
+          <h3 class="page-title" style="font-size: 1.25rem; margin-bottom: 0.75rem;">📤 Exportar Backup da Campanha</h3>
+          <p class="text-muted" style="margin-bottom: 1.25rem; font-size: 0.9rem;">
+            Baixe um arquivo JSON com todas as fichas, campanhas ativas, histórico e anotações. Você pode usar esse arquivo para transferir para outro computador ou salvar cópias de segurança.
+          </p>
+          <button class="btn btn-primary" onclick="DB.exportAllBackup()">
+            💾 Baixar Arquivo de Backup (JSON)
+          </button>
+        </div>
+
+        <div class="card">
+          <h3 class="page-title" style="font-size: 1.25rem; margin-bottom: 0.75rem;">📥 Restaurar Backup</h3>
+          <p class="text-muted" style="margin-bottom: 1.25rem; font-size: 0.9rem;">
+            Selecione um arquivo de backup previamente exportado para restaurar todos os dados das suas campanhas.
+          </p>
+          <input type="file" accept=".json" class="input" onchange="
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const res = DB.importBackup(e.target.result);
+              if (res.success) {
+                alert('Backup restaurado com sucesso! A página será recarregada.');
+                location.reload();
+              } else {
+                alert('Erro ao restaurar: ' + res.error);
+              }
+            };
+            if (this.files[0]) reader.readAsText(this.files[0]);
+          " />
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================= -->
+  <!-- Bandeja Flutuante Universal de Dados                          -->
+  <!-- ============================================================= -->
+  <button class="dice-floating-btn" onclick="App.toggleDiceDrawer()" title="Abrir Rolador de Dados (Atalho: D)">
+    🎲
+  </button>
+
+  <aside class="dice-drawer" id="dice-drawer">
+    <div class="dice-drawer-header">
+      <h3>🎲 Rolador de Dados RPG</h3>
+      <button class="modal-close-btn" onclick="App.toggleDiceDrawer()">✕</button>
+    </div>
+
+    <div class="dice-drawer-body">
+      <!-- Banner de Resultado Recente -->
+      <div class="dice-result-banner" id="dice-result-banner">
+        <span class="text-muted">Clique em um dado para rolar</span>
+      </div>
+
+      <!-- Opções de Vantagem & Modificador -->
+      <div class="dice-options-row">
+        <div class="dice-adv-group">
+          <label><input type="radio" name="dice-adv-mode" value="normal" checked> Normal</label>
+          <label><input type="radio" name="dice-adv-mode" value="advantage"> Vantagem</label>
+          <label><input type="radio" name="dice-adv-mode" value="disadvantage"> Desvantagem</label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.3rem;">
+          <small class="text-muted">Mod:</small>
+          <input type="number" id="dice-tray-mod" class="input input-sm" value="0" style="width: 50px;" />
+        </div>
+      </div>
+
+      <!-- Botões de Dados D&D -->
+      <div class="dice-buttons-grid">
+        <button class="dice-btn" onclick="App.quickRollDice(4)">d4</button>
+        <button class="dice-btn" onclick="App.quickRollDice(6)">d6</button>
+        <button class="dice-btn" onclick="App.quickRollDice(8)">d8</button>
+        <button class="dice-btn" onclick="App.quickRollDice(10)">d10</button>
+        <button class="dice-btn" onclick="App.quickRollDice(12)">d12</button>
+        <button class="dice-btn" onclick="App.quickRollDice(20)" style="border-color: #fbbf24; color: #fbbf24;">d20</button>
+        <button class="dice-btn" onclick="App.quickRollDice(100)">d100</button>
+        <button class="dice-btn" onclick="DiceRoller.rollFormula(prompt('Digite a fórmula (ex: 3d6+4, 1d12+3):', '2d6+3') || '1d20')">Fórmula</button>
+      </div>
+
+      <!-- Histórico de Rolagens -->
+      <div class="dice-history-title">
+        <span>Histórico de Rolagens</span>
+        <span style="cursor: pointer; color: var(--combat-red);" onclick="DiceRoller.clearHistory()">Limpar</span>
+      </div>
+      <div id="dice-history-list"></div>
+    </div>
+  </aside>
+
+  <!-- ============================================================= -->
+  <!-- Modais Globais                                                -->
+  <!-- ============================================================= -->
+  <!-- Modal da Ficha Completa D&D 5e -->
+  <div class="modal-overlay" id="sheet-modal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title">Ficha Oficial do Personagem</h3>
+        <button class="modal-close-btn" onclick="SheetsModule.closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="sheet-modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Modal do Statblock de Monstro D&D 5e -->
+  <div class="modal-overlay" id="monster-modal">
+    <div class="modal-window" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Estatísticas da Criatura</h3>
+        <button class="modal-close-btn" onclick="BestiaryModule.closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="monster-modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Modal Genérico de Formulários (Criação, Edição, Pins, Importação) -->
+  <div class="modal-overlay" id="form-modal">
+    <div class="modal-window" style="max-width: 640px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="form-modal-title">Formulário</h3>
+        <button class="modal-close-btn" onclick="App.closeFormModal()">✕</button>
+      </div>
+      <div class="modal-body" id="form-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Carregamento dos Scripts -->
+  <script src="js/data_monsters.js"></script>
+  <script src="js/data_spells.js"></script>
+  <script src="js/data_items.js"></script>
+  <script src="js/data_players.js"></script>
+  <script src="js/data_campaigns.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/audio_engine.js"></script>
+  <script src="js/dice_roller.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/bestiary.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/maps.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
