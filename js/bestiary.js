@@ -1,6 +1,7 @@
 /**
  * Grimório do Mestre - Bestiário & Base de Dados de Monstros (D&D 5e)
- * Gerencia mais de 1.000 criaturas pré-carregadas + monstros customizados pelo usuário
+ * Gerencia mais de 1.000 criaturas D&D 5e 100% traduzidas para o Português,
+ * com consulta bilingue (Português/Inglês), fichas oficiais, rolagem de dados e combate imediato.
  */
 const BestiaryModule = {
   currentPage: 1,
@@ -15,7 +16,13 @@ const BestiaryModule = {
   getAll() {
     const base = typeof MONSTERS_DATABASE !== 'undefined' ? MONSTERS_DATABASE : [];
     const custom = DB.get('customMonsters', []);
-    return [...custom, ...base];
+    const merged = [...custom, ...base];
+
+    // Traduz dinamicamente todos os monstros com o motor MonsterTranslator
+    if (typeof MonsterTranslator !== 'undefined') {
+      return merged.map(m => MonsterTranslator.translateMonster(m));
+    }
+    return merged;
   },
 
   getById(id) {
@@ -30,25 +37,38 @@ const BestiaryModule = {
 
     const all = this.getAll();
     this.filteredMonsters = all.filter(m => {
-      // Busca por nome ou tipo
+      // Busca bilingue por Nome em Português ou Nome em Inglês
       if (search) {
-        const matchesName = m.name.toLowerCase().includes(search);
-        const matchesType = (m.rawType || m.type || '').toLowerCase().includes(search);
-        if (!matchesName && !matchesType) return false;
+        const namePt = (m.name || '').toLowerCase();
+        const nameEn = (m.nameEn || '').toLowerCase();
+        const typeStr = (m.rawType || m.type || '').toLowerCase();
+        const matchesSearch = namePt.includes(search) || nameEn.includes(search) || typeStr.includes(search);
+        if (!matchesSearch) return false;
       }
-      // Filtro de Tipo
+
+      // Filtro de Tipo em Português
       if (typeFilter !== 'ALL' && m.type !== typeFilter) {
         return false;
       }
-      // Filtro de ND (CR)
+
+      // Filtro de ND (Nível de Desafio / CR)
       if (crFilter !== 'ALL') {
-        if (crFilter === 'high' && !['10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','30'].includes(m.cr.toString())) return false;
-        else if (crFilter !== 'high' && m.cr.toString() !== crFilter) return false;
+        const crStr = String(m.cr);
+        if (crFilter === 'high') {
+          const highCRs = ['10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','30'];
+          if (!highCRs.includes(crStr)) return false;
+        } else if (crStr !== crFilter) {
+          return false;
+        }
       }
-      // Filtro de Fonte
-      if (sourceFilter !== 'ALL' && (!m.source || !m.source.includes(sourceFilter))) {
-        return false;
+
+      // Filtro de Fonte / Livro
+      if (sourceFilter !== 'ALL') {
+        const src = (m.source || '').toLowerCase();
+        const filt = sourceFilter.toLowerCase();
+        if (!src.includes(filt)) return false;
       }
+
       return true;
     });
 
@@ -72,7 +92,7 @@ const BestiaryModule = {
         <div class="empty-state">
           <div class="empty-icon">🐉</div>
           <h3>Nenhuma criatura encontrada</h3>
-          <p>Tente ajustar os filtros de busca ou cadastre um novo monstro.</p>
+          <p>Tente ajustar os filtros de busca (você pode buscar tanto em português quanto em inglês).</p>
         </div>
       `;
       if (pagination) pagination.innerHTML = '';
@@ -83,12 +103,14 @@ const BestiaryModule = {
     const pageItems = this.filteredMonsters.slice(startIdx, startIdx + this.pageSize);
 
     container.innerHTML = pageItems.map(m => {
+      const showOrig = m.nameEn && m.nameEn.toLowerCase() !== m.name.toLowerCase();
       return `
         <div class="card monster-card" onclick="BestiaryModule.openDetailModal('${m.id}')">
           <div class="monster-card-top">
             <div>
               <h3 class="monster-name">${m.name}</h3>
-              <div class="monster-sub">${m.size} • ${m.rawType || m.type}</div>
+              ${showOrig ? `<div class="monster-orig-name" style="font-size: 0.78rem; color: var(--text-muted); font-style: italic;">(${m.nameEn})</div>` : ''}
+              <div class="monster-sub" style="margin-top: 0.2rem;">${m.size} • ${m.rawType || m.type}</div>
             </div>
             <div class="cr-badge" title="Nível de Desafio">ND ${m.cr}</div>
           </div>
@@ -113,7 +135,7 @@ const BestiaryModule = {
           </div>
 
           <div class="monster-source-badge">
-            <small>📖 ${m.source || 'SRD 5e'}</small>
+            <small>📖 ${m.source || 'Manual dos Monstros'}</small>
           </div>
 
           <div class="card-actions" onclick="event.stopPropagation()">
@@ -121,7 +143,7 @@ const BestiaryModule = {
               ⚔️ Adicionar ao Combate
             </button>
             <button class="btn btn-sm btn-secondary" onclick="BestiaryModule.openDetailModal('${m.id}')">
-              📜 Ficha Completa
+              📜 Ficha Oficial
             </button>
           </div>
         </div>
@@ -153,6 +175,9 @@ const BestiaryModule = {
     window.scrollTo({ top: 300, behavior: 'smooth' });
   },
 
+  /**
+   * Abre o Modal Oficial de Estatísticas (Statblock) 100% em Português
+   */
   openDetailModal(id) {
     const m = this.getById(id);
     if (!m) return;
@@ -165,12 +190,15 @@ const BestiaryModule = {
     const dexScore = m.dex || (10 + (m.initiativeMod || 0) * 2);
     const dexMod = Math.floor((dexScore - 10) / 2);
 
+    const showOrig = m.nameEn && m.nameEn.toLowerCase() !== m.name.toLowerCase();
+
     content.innerHTML = `
       <div class="statblock-dnd">
         <div class="statblock-header">
           <h2 class="statblock-title">${m.name}</h2>
-          <div class="statblock-meta">${m.size} ${m.rawType || m.type}, ${m.alignment || 'qualquer alinhamento'}</div>
-          <div class="statblock-source">Fonte: ${m.source || 'Livro dos Monstros'}</div>
+          ${showOrig ? `<div style="font-size: 0.9rem; color: #94a3b8; font-style: italic; margin-bottom: 0.25rem;">Nome original: ${m.nameEn}</div>` : ''}
+          <div class="statblock-meta">${m.size} • ${m.rawType || m.type}, ${m.alignment || 'qualquer alinhamento'}</div>
+          <div class="statblock-source">📖 Fonte: ${m.source || 'Manual dos Monstros'}</div>
         </div>
 
         <div class="statblock-divider"></div>
@@ -178,33 +206,34 @@ const BestiaryModule = {
         <div class="statblock-vitals">
           <div><strong>Classe de Armadura:</strong> ${m.ac}</div>
           <div><strong>Pontos de Vida:</strong> ${m.hp}</div>
-          <div><strong>Deslocamento:</strong> ${m.speed || '9m (6 sq)'}</div>
+          <div><strong>Deslocamento:</strong> ${m.speed || '9m (6 quadrados)'}</div>
         </div>
 
         <div class="statblock-divider"></div>
 
+        <!-- Grade de Atributos com Rolagem de Teste ao Clicar -->
         <div class="statblock-ability-table">
-          <div class="stat-col">
+          <div class="stat-col" style="cursor: pointer;" onclick="DiceRoller.roll(20, 1, ${m.stats ? SheetsModule.calculateMod(m.stats.str) : 0}); App.showToast('Rolou Teste de FOR de ${m.name}!')" title="Clique para rolar d20">
             <span class="stat-col-label">FOR</span>
             <span class="stat-col-val">${m.stats?.str || 10} (${m.stats ? SheetsModule.formatMod(SheetsModule.calculateMod(m.stats.str)) : '+0'})</span>
           </div>
-          <div class="stat-col">
+          <div class="stat-col" style="cursor: pointer;" onclick="DiceRoller.roll(20, 1, ${dexMod}); App.showToast('Rolou Teste de DES de ${m.name}!')" title="Clique para rolar d20">
             <span class="stat-col-label">DES</span>
             <span class="stat-col-val">${dexScore} (${SheetsModule.formatMod(dexMod)})</span>
           </div>
-          <div class="stat-col">
+          <div class="stat-col" style="cursor: pointer;" onclick="DiceRoller.roll(20, 1, ${m.stats ? SheetsModule.calculateMod(m.stats.con) : 0}); App.showToast('Rolou Teste de CON de ${m.name}!')" title="Clique para rolar d20">
             <span class="stat-col-label">CON</span>
             <span class="stat-col-val">${m.stats?.con || 10} (${m.stats ? SheetsModule.formatMod(SheetsModule.calculateMod(m.stats.con)) : '+0'})</span>
           </div>
-          <div class="stat-col">
+          <div class="stat-col" style="cursor: pointer;" onclick="DiceRoller.roll(20, 1, ${m.stats ? SheetsModule.calculateMod(m.stats.int) : 0}); App.showToast('Rolou Teste de INT de ${m.name}!')" title="Clique para rolar d20">
             <span class="stat-col-label">INT</span>
             <span class="stat-col-val">${m.stats?.int || 10} (${m.stats ? SheetsModule.formatMod(SheetsModule.calculateMod(m.stats.int)) : '+0'})</span>
           </div>
-          <div class="stat-col">
+          <div class="stat-col" style="cursor: pointer;" onclick="DiceRoller.roll(20, 1, ${m.stats ? SheetsModule.calculateMod(m.stats.wis) : 0}); App.showToast('Rolou Teste de SAB de ${m.name}!')" title="Clique para rolar d20">
             <span class="stat-col-label">SAB</span>
             <span class="stat-col-val">${m.stats?.wis || 10} (${m.stats ? SheetsModule.formatMod(SheetsModule.calculateMod(m.stats.wis)) : '+0'})</span>
           </div>
-          <div class="stat-col">
+          <div class="stat-col" style="cursor: pointer;" onclick="DiceRoller.roll(20, 1, ${m.stats ? SheetsModule.calculateMod(m.stats.cha) : 0}); App.showToast('Rolou Teste de CAR de ${m.name}!')" title="Clique para rolar d20">
             <span class="stat-col-label">CAR</span>
             <span class="stat-col-val">${m.stats?.cha || 10} (${m.stats ? SheetsModule.formatMod(SheetsModule.calculateMod(m.stats.cha)) : '+0'})</span>
           </div>
@@ -213,10 +242,10 @@ const BestiaryModule = {
         <div class="statblock-divider"></div>
 
         <div class="statblock-attributes">
-          <div><strong>Nível de Desafio:</strong> ${m.cr} (${m.exp || '—'} XP)</div>
+          <div><strong>Nível de Desafio (ND):</strong> ${m.cr} (${m.exp || '—'} XP)</div>
           <div><strong>Bônus de Iniciativa:</strong> ${m.initiativeMod >= 0 ? '+' + m.initiativeMod : m.initiativeMod}</div>
-          ${m.senses ? `<div><strong>Sentidos:</strong> ${m.senses}</div>` : '<div><strong>Sentidos:</strong> Percepção passiva ' + (10 + Math.max(0, dexMod)) + '</div>'}
-          ${m.languages ? `<div><strong>Idiomas:</strong> ${m.languages}</div>` : ''}
+          <div><strong>Sentidos:</strong> ${m.senses || `Percepção passiva ${10 + Math.max(0, dexMod)}`}</div>
+          <div><strong>Idiomas:</strong> ${m.languages || 'Nenhum'}</div>
         </div>
 
         <div class="statblock-divider"></div>
@@ -226,18 +255,25 @@ const BestiaryModule = {
           ${m.actions && m.actions.length > 0 ? m.actions.map(a => `
             <div class="statblock-action">
               <strong><em>${a.name}.</em></strong> ${a.desc}
-              ${a.attackBonus ? `
-                <button class="btn btn-xs btn-primary" onclick="DiceRoller.rollFormula('1d20${a.attackBonus}'); App.showToast('Ataque de ${m.name}: ${a.name}!')">
-                  🎲 Rolar ${a.name} (${a.attackBonus})
-                </button>
-              ` : ''}
+              <div style="display: flex; gap: 0.4rem; margin-top: 0.35rem;">
+                ${a.attackBonus ? `
+                  <button class="btn btn-xs btn-primary" onclick="DiceRoller.rollFormula('1d20${a.attackBonus}'); App.showToast('Ataque de ${m.name}: ${a.name}!')">
+                    🎲 Rolar Ataque (${a.attackBonus})
+                  </button>
+                ` : ''}
+              </div>
             </div>
           `).join('') : `
             <div class="statblock-action">
-              <strong><em>Ataque Corpo a Corpo.</em></strong> Ataque com arma: +${Math.max(2, dexMod + 2)} para acertar, alcance 1,5m, um alvo. Dano: 1d6 + ${dexMod} dano físico.
-              <button class="btn btn-xs btn-primary" style="margin-left: 8px;" onclick="DiceRoller.rollFormula('1d20+${Math.max(2, dexMod + 2)}'); App.showToast('Ataque de ${m.name}!')">
-                🎲 Rolar Ataque
-              </button>
+              <strong><em>Ataque com Arma Corpo a Corpo.</em></strong> +${Math.max(2, dexMod + 2)} para acertar, alcance 1,5m, um alvo. Acerto: 1d6 + ${dexMod} de dano físico.
+              <div style="display: flex; gap: 0.4rem; margin-top: 0.4rem;">
+                <button class="btn btn-xs btn-primary" onclick="DiceRoller.rollFormula('1d20+${Math.max(2, dexMod + 2)}'); App.showToast('Ataque de ${m.name}!')">
+                  🎲 Rolar Ataque (+${Math.max(2, dexMod + 2)})
+                </button>
+                <button class="btn btn-xs btn-outline" onclick="DiceRoller.rollFormula('1d6+${dexMod}'); App.showToast('Dano de ${m.name}!')">
+                  💥 Rolar Dano (1d6+${dexMod})
+                </button>
+              </div>
             </div>
           `}
         </div>
@@ -278,6 +314,9 @@ const BestiaryModule = {
     const title = document.getElementById('form-modal-title');
     const body = document.getElementById('form-modal-body');
     if (!modal || !title || !body) return;
+
+    const modalWindow = modal.querySelector('.modal-window');
+    if (modalWindow) modalWindow.style.maxWidth = '640px';
 
     title.innerText = 'Cadastrar Nova Criatura no Bestiário';
     body.innerHTML = `
@@ -325,7 +364,7 @@ const BestiaryModule = {
           </div>
           <div class="form-group">
             <label>Fonte / Livro</label>
-            <input type="text" id="mform-source" class="input" placeholder="Manual dos Monstros, Homebrew, etc." />
+            <input type="text" id="mform-source" class="input" placeholder="Manual dos Monstros, Homebrew..." />
           </div>
         </div>
 
@@ -369,10 +408,11 @@ const BestiaryModule = {
     const monster = {
       id: 'custom_' + Date.now(),
       name: document.getElementById('mform-name').value.trim(),
+      nameEn: document.getElementById('mform-name').value.trim(),
       cr: document.getElementById('mform-cr').value.trim(),
       size: document.getElementById('mform-size').value,
       type: document.getElementById('mform-type').value,
-      source: document.getElementById('mform-source').value.trim() || 'Manual do Mestre',
+      source: document.getElementById('mform-source').value.trim() || 'Criação do Mestre',
       ac: document.getElementById('mform-ac').value.trim(),
       hp: hpStr,
       hpMax: hpNum,
@@ -394,6 +434,9 @@ const BestiaryModule = {
     const title = document.getElementById('form-modal-title');
     const body = document.getElementById('form-modal-body');
     if (!modal || !title || !body) return;
+
+    const modalWindow = modal.querySelector('.modal-window');
+    if (modalWindow) modalWindow.style.maxWidth = '640px';
 
     title.innerText = 'Importar Monstros em Lote (JSON)';
     body.innerHTML = `
@@ -440,6 +483,7 @@ const BestiaryModule = {
         custom.unshift({
           id: 'custom_import_' + Date.now() + '_' + idx,
           name: item.name,
+          nameEn: item.nameEn || item.name,
           cr: item.cr || '1',
           size: item.size || 'Médio',
           type: item.type || 'Humanoide',

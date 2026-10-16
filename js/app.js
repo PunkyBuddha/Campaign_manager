@@ -216,27 +216,222 @@ const App = {
     const container = document.getElementById('spells-results-grid');
     if (!container) return;
 
+    const spellNameMap = {
+      "acid splash": "Espirro Ácido",
+      "blade ward": "Proteção contra Lâminas",
+      "booming blade": "Lâmina Estrondosa",
+      "chill touch": "Toque Gélido",
+      "control flames": "Controlar Chamas",
+      "create bonfire": "Criar Fogueira",
+      "dancing lights": "Luzes Dançantes",
+      "druidcraft": "Artifício de Druida",
+      "eldritch blast": "Rajada Mística",
+      "fire bolt": "Raio de Fogo",
+      "friends": "Amizade",
+      "frostbite": "Queimadura de Frio",
+      "green-flame blade": "Lâmina da Chama Esmeralda",
+      "guidance": "Orientação",
+      "gust": "Rajada de Vento",
+      "light": "Luz",
+      "lightning lure": "Isca Elétrica",
+      "mage hand": "Mãos Mágicas",
+      "magic stone": "Pedra Mágica",
+      "mending": "Consertar",
+      "message": "Mensagem",
+      "minor illusion": "Ilusão Menor",
+      "mold earth": "Moldar Terra",
+      "poison spray": "Borrifada Venenosa",
+      "prestidigitation": "Prestidigitação",
+      "produce flame": "Produzir Chama",
+      "ray of frost": "Raio de Gelo",
+      "resistance": "Resistência",
+      "sacred flame": "Chama Sagrada",
+      "shape water": "Moldar Água",
+      "shillelagh": "Bordão Mágico (Shillelagh)",
+      "shocking grasp": "Toque Chocante",
+      "spare the dying": "Poupar os Moribundos",
+      "sword burst": "Explosão de Espadas",
+      "thaumaturgy": "Taumaturgia",
+      "thorn whip": "Chicote de Espinhos",
+      "thunderclap": "Estrondo de Trovão",
+      "true strike": "Golpe Certeiro",
+      "vicious mockery": "Zombaria Viciosa",
+      "absorb elements": "Absorver Elementos",
+      "alarm": "Alarme",
+      "animal friendship": "Amizade Animal",
+      "armor of agathys": "Armadura de Agathys",
+      "arms of hadar": "Braços de Hadar",
+      "bane": "Perdição",
+      "beast bond": "Vínculo com Besta",
+      "bless": "Bênção",
+      "burning hands": "Mãos Flamejantes",
+      "catapult": "Catapulta",
+      "charm person": "Enfeitiçar Pessoa",
+      "chromatic orb": "Esfera Cromática",
+      "color spray": "Leque Cromático",
+      "command": "Comando",
+      "compelled duel": "Duelo Compelido",
+      "comprehend languages": "Compreender Idiomas",
+      "create or destroy water": "Criar ou Destruir Água",
+      "cure wounds": "Curar Ferimentos",
+      "detect evil and good": "Detectar o Bem e Mal",
+      "detect magic": "Detectar Magia",
+      "detect poison and disease": "Detectar Veneno e Doença",
+      "disguise self": "Disfarçar-se",
+      "dissonant whispers": "Sussurros Dissonantes",
+      "divine favor": "Favor Divino",
+      "ensnaring strike": "Ataque Enredante",
+      "entangle": "Emaranhar",
+      "expeditious retreat": "Recuo Acelerado",
+      "faerie fire": "Fogo das Fadas",
+      "false life": "Vida Falsa",
+      "feather fall": "Queda Suave",
+      "find familiar": "Encontrar Familiar",
+      "fog cloud": "Nuvem de Névoa",
+      "goodberry": "Fruto Bom (Goodberry)",
+      "grease": "Área Escorregadia (Graxa)",
+      "guiding bolt": "Raio Guiador",
+      "healing word": "Palavra Curativa",
+      "hellish rebuke": "Repreensão Infernal",
+      "heroism": "Heroísmo",
+      "hex": "Bruxaria (Hex)",
+      "hunter's mark": "Marca do Caçador",
+      "identify": "Identificação",
+      "inflict wounds": "Infligir Ferimentos",
+      "mage armor": "Armadura Arcana",
+      "magic missile": "Mísseis Mágicos",
+      "protection from evil and good": "Proteção contra o Bem e Mal",
+      "sanctuary": "Santuário",
+      "shield": "Escudo Arcano",
+      "shield of faith": "Escudo da Fé",
+      "silent image": "Imagem Silenciosa",
+      "sleep": "Sono",
+      "thunderwave": "Onda Trovejante",
+      "witch bolt": "Raio de Bruxa",
+      "blindness/deafness": "Cegueira/Surdez",
+      "blur": "Desfoque",
+      "darkness": "Escuridão",
+      "darkvision": "Visão no Escuro",
+      "flaming sphere": "Esfera Flamejante",
+      "heat metal": "Esquentar Metal",
+      "hold person": "Imobilizar Pessoa",
+      "invisibility": "Invisibilidade",
+      "knock": "Arrombar",
+      "lesser restoration": "Restauração Menor",
+      "levitate": "Levitação",
+      "misty step": "Passo Nebuloso",
+      "mirror image": "Imagens Espelhadas",
+      "moonbeam": "Raio Lunar",
+      "scorching ray": "Raio Ardente",
+      "see invisibility": "Ver o Invisível",
+      "shatter": "Despedaçar",
+      "silence": "Silêncio",
+      "spiritual weapon": "Arma Espiritual",
+      "suggestion": "Sugestão",
+      "web": "Teia",
+      "animate dead": "Animar os Mortos",
+      "bestow curse": "Rogar Maldição",
+      "call lightning": "Convocar Relâmpago",
+      "counterspell": "Contramagia",
+      "dispel magic": "Dissipar Magia",
+      "fear": "Medo",
+      "fireball": "Bola de Fogo",
+      "fly": "Voo",
+      "gaseous form": "Forma Gasosa",
+      "haste": "Velocidade",
+      "hypnotic pattern": "Padrão Hipnótico",
+      "lightning bolt": "Relâmpago",
+      "major image": "Imagem Maior",
+      "mass healing word": "Palavra Curativa em Massa",
+      "revivify": "Reviver",
+      "sleet storm": "Tempestade de Granizo",
+      "slow": "Lentidão",
+      "spirit guardians": "Guardiões Espirituais",
+      "stinking cloud": "Nuvem Fétida",
+      "tiny hut": "Pequena Cabana de Leomund",
+      "vampiric touch": "Toque Vampírico",
+      "water walk": "Andar na Água",
+      "banishment": "Banimento",
+      "blight": "Definhar",
+      "dimension door": "Porta Dimensional",
+      "greater invisibility": "Invisibilidade Maior",
+      "ice storm": "Tempestade de Gelo",
+      "polymorph": "Metamorfose",
+      "stoneskin": "Pele de Pedra",
+      "wall of fire": "Muralha de Fogo",
+      "cloudkill": "Nuvem Assassina",
+      "cone of cold": "Cone de Frio",
+      "greater restoration": "Restauração Maior",
+      "hold monster": "Imobilizar Monstro",
+      "mass cure wounds": "Curar Ferimentos em Massa",
+      "raise dead": "Reviver os Mortos",
+      "teleportation circle": "Círculo de Teletransporte",
+      "wall of force": "Muralha de Energia",
+      "chain lightning": "Corrente de Relâmpagos",
+      "disintegrate": "Desintegrar",
+      "heal": "Cura Completa",
+      "sunbeam": "Raio Solar",
+      "true seeing": "Visão Verdadeira",
+      "delayed blast fireball": "Bola de Fogo Controlada",
+      "finger of death": "Dedo da Morte",
+      "fire storm": "Tempestade de Fogo",
+      "plane shift": "Viagem Planar",
+      "resurrection": "Ressurreição",
+      "reverse gravity": "Inverter a Gravidade",
+      "teleport": "Teletransporte",
+      "antimagic field": "Campo Antimagia",
+      "earthquake": "Terremoto",
+      "sunburst": "Explosão Solar",
+      "gate": "Portal Dimensional",
+      "meteor swarm": "Chuva de Meteoros",
+      "power word kill": "Palavra de Poder: Matar",
+      "time stop": "Parar o Tempo",
+      "true resurrection": "Ressurreição Verdadeira",
+      "wish": "Desejo"
+    };
+
+    const schoolMap = {
+      "Evocation": "Evocação",
+      "Abjuration": "Abjuração",
+      "Conjuration": "Conjuração",
+      "Divination": "Adivinhação",
+      "Enchantment": "Encantamento",
+      "Illusion": "Ilusão",
+      "Necromancy": "Necromancia",
+      "Transmutation": "Transmutação"
+    };
+
     const spells = typeof SPELLS_DATABASE !== 'undefined' ? SPELLS_DATABASE : [];
     const filtered = spells.filter(s => {
-      if (search && !s.name.toLowerCase().includes(search) && !s.desc.toLowerCase().includes(search)) return false;
+      const ptName = (spellNameMap[s.name.toLowerCase()] || '').toLowerCase();
+      const enName = s.name.toLowerCase();
+      if (search && !enName.includes(search) && !ptName.includes(search) && !s.desc.toLowerCase().includes(search)) {
+        return false;
+      }
       if (lvlFilter !== 'ALL' && s.level.toString() !== lvlFilter) return false;
       return true;
-    }).slice(0, 30); // Limita 30 para visualização rápida
+    }).slice(0, 30);
 
-    container.innerHTML = filtered.map(s => `
-      <div class="card spell-catalog-card">
-        <div class="spell-catalog-header">
-          <h4>${s.name}</h4>
-          <span class="badge badge-purple">${s.level === 'Truque' || s.level === '0' ? 'Truque' : s.level + 'º Círculo'}</span>
+    container.innerHTML = filtered.map(s => {
+      const ptName = spellNameMap[s.name.toLowerCase()] || s.name;
+      const schoolPt = schoolMap[s.school] || s.school;
+      const showOrig = ptName !== s.name;
+      return `
+        <div class="card spell-catalog-card">
+          <div class="spell-catalog-header">
+            <h4>${ptName}</h4>
+            <span class="badge badge-purple">${s.level === 'Truque' || s.level === '0' ? 'Truque' : s.level + 'º Círculo'}</span>
+          </div>
+          ${showOrig ? `<div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-top: -0.2rem; margin-bottom: 0.35rem;">(${s.name})</div>` : ''}
+          <div class="spell-catalog-meta">
+            <span>Escola: <strong>${schoolPt}</strong></span> • 
+            <span>Tempo: <strong>${s.castingTime.replace('action', 'ação').replace('Bonus', 'Bônus')}</strong></span> • 
+            <span>Alcance: <strong>${s.range.replace('Self', 'Pessoal').replace('Touch', 'Toque')}</strong></span>
+          </div>
+          <div class="spell-catalog-desc">${s.desc.length > 220 ? s.desc.slice(0, 220) + '...' : s.desc}</div>
         </div>
-        <div class="spell-catalog-meta">
-          <span>Escola: <strong>${s.school}</strong></span> • 
-          <span>Tempo: <strong>${s.castingTime}</strong></span> • 
-          <span>Alcance: <strong>${s.range}</strong></span>
-        </div>
-        <div class="spell-catalog-desc">${s.desc.length > 220 ? s.desc.slice(0, 220) + '...' : s.desc}</div>
-      </div>
-    `).join('') || '<p class="text-muted">Nenhuma magia encontrada.</p>';
+      `;
+    }).join('') || '<p class="text-muted">Nenhuma magia encontrada.</p>';
   },
 
   filterItems() {

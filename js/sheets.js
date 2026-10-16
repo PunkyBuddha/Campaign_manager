@@ -1,8 +1,43 @@
 /**
  * Grimório do Mestre - Módulo de Fichas de Jogadores (D&D 5e)
+ * Gerenciamento 100% completo pela interface: alteração de nível com 1 clique,
+ * editor detalhado de atributos, salvaguardas, 18 perícias oficiais, ataques, magias e inventário.
  */
 const SheetsModule = {
   activeCharacterId: null,
+
+  // Lista oficial das 18 perícias do D&D 5e e seus atributos base
+  SKILLS_DEF: [
+    { key: "athletics", name: "Atletismo", attr: "str" },
+    { key: "acrobatics", name: "Acrobacia", attr: "dex" },
+    { key: "sleightOfHand", name: "Prestidigitação", attr: "dex" },
+    { key: "stealth", name: "Furtividade", attr: "dex" },
+    { key: "arcana", name: "Arcanismo", attr: "int" },
+    { key: "history", name: "História", attr: "int" },
+    { key: "investigation", name: "Investigação", attr: "int" },
+    { key: "nature", name: "Natureza", attr: "int" },
+    { key: "religion", name: "Religião", attr: "int" },
+    { key: "animalHandling", name: "Adestrar Animais", attr: "wis" },
+    { key: "insight", name: "Intuição", attr: "wis" },
+    { key: "medicine", name: "Medicina", attr: "wis" },
+    { key: "perception", name: "Percepção", attr: "wis" },
+    { key: "survival", name: "Sobrevivência", attr: "wis" },
+    { key: "deception", name: "Enganação", attr: "cha" },
+    { key: "intimidation", name: "Intimidação", attr: "cha" },
+    { key: "performance", name: "Atuação", attr: "cha" },
+    { key: "persuasion", name: "Persuasão", attr: "cha" }
+  ],
+
+  AVATAR_PRESETS: [
+    { name: "Thorin / Jeremias", url: "assets/characters/thorin.jpg" },
+    { name: "Lyra / Fiora", url: "assets/characters/lyra.jpg" },
+    { name: "Kaelen / Fargo", url: "assets/characters/kaelen.jpg" },
+    { name: "Varis / Andarna", url: "assets/characters/varis.jpg" },
+    { name: "Guerreiro Anão", url: "assets/characters/dwarf_warrior_portrait_1792084269444.jpg" },
+    { name: "Mago Elfo", url: "assets/characters/elf_wizard_portrait_1792084299799.jpg" },
+    { name: "Ladino Humano", url: "assets/characters/rogue_portrait_1792084335446.jpg" },
+    { name: "Clérigo Humano", url: "assets/characters/cleric_portrait_1792084383148.jpg" }
+  ],
 
   init() {
     this.render();
@@ -26,25 +61,125 @@ const SheetsModule = {
     }
     DB.set('players', players);
     this.render();
+    if (typeof App !== 'undefined' && App.renderDashboard) {
+      App.renderDashboard();
+    }
   },
 
   delete(id) {
-    if (!confirm('Deseja realmente remover esta ficha de personagem?')) return;
+    const char = this.getById(id);
+    const charName = char ? char.name : "personagem";
+    if (!confirm(`Deseja realmente remover a ficha de "${charName}"?`)) return;
     const players = this.getAll().filter(p => p.id !== id);
     DB.set('players', players);
     this.closeModal();
     this.render();
-    App.showToast('Ficha de personagem removida.');
+    if (typeof App !== 'undefined' && App.renderDashboard) {
+      App.renderDashboard();
+    }
+    App.showToast(`Ficha de "${charName}" removida.`);
   },
 
   calculateMod(score) {
-    return Math.floor((score - 10) / 2);
+    const val = typeof score === 'number' ? score : parseInt(score, 10) || 10;
+    return Math.floor((val - 10) / 2);
   },
 
   formatMod(mod) {
     return mod >= 0 ? `+${mod}` : `${mod}`;
   },
 
+  calculateProficiency(level) {
+    const lvl = typeof level === 'number' ? level : parseInt(level, 10) || 1;
+    if (lvl >= 17) return 6;
+    if (lvl >= 13) return 5;
+    if (lvl >= 9) return 4;
+    if (lvl >= 5) return 3;
+    return 2;
+  },
+
+  getSkillMod(char, skillDef) {
+    const attrScore = (char.stats && char.stats[skillDef.attr]) || 10;
+    const baseMod = this.calculateMod(attrScore);
+    const hasProf = !!(char.skills && char.skills[skillDef.key]);
+    const profBonus = char.proficiencyBonus || this.calculateProficiency(char.level);
+    return baseMod + (hasProf ? profBonus : 0);
+  },
+
+  getSaveMod(char, attr) {
+    const attrScore = (char.stats && char.stats[attr]) || 10;
+    const baseMod = this.calculateMod(attrScore);
+    const hasProf = !!(char.saves && char.saves[attr]);
+    const profBonus = char.proficiencyBonus || this.calculateProficiency(char.level);
+    return baseMod + (hasProf ? profBonus : 0);
+  },
+
+  /**
+   * Altera o nível do personagem diretamente pela interface com 1 clique (+ ou -)
+   */
+  changeLevel(id, delta) {
+    const char = this.getById(id);
+    if (!char) return;
+
+    const oldLevel = char.level || 1;
+    const newLevel = Math.max(1, Math.min(20, oldLevel + delta));
+    if (newLevel === oldLevel) return;
+
+    char.level = newLevel;
+    char.proficiencyBonus = this.calculateProficiency(newLevel);
+
+    // Atualiza automaticamente os dados de vida
+    if (char.hitDice) {
+      char.hitDice = char.hitDice.replace(/^\d+d/, `${newLevel}d`);
+    } else {
+      char.hitDice = `${newLevel}d8`;
+    }
+
+    this.save(char);
+
+    // Se o modal estiver aberto, atualiza-o em tempo real
+    if (this.activeCharacterId === id) {
+      this.openDetailModal(id);
+    }
+
+    if (delta > 0) {
+      if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('critical');
+      App.showToast(`⚔️ ${char.name} subiu para o Nível ${newLevel}! (Bônus de Proficiência: +${char.proficiencyBonus})`);
+    } else {
+      App.showToast(`${char.name} ajustado para o Nível ${newLevel}.`);
+    }
+  },
+
+  /**
+   * Descanso Longo: Recupera todos os PVs e espaços de magia
+   */
+  restLong(id) {
+    const char = this.getById(id);
+    if (!char) return;
+
+    char.hpCurrent = char.hpMax;
+    char.hpTemp = 0;
+
+    // Reseta espaços de magia gastos
+    if (char.spellSlots) {
+      Object.keys(char.spellSlots).forEach(lvl => {
+        if (char.spellSlots[lvl]) {
+          char.spellSlots[lvl].used = 0;
+        }
+      });
+    }
+
+    this.save(char);
+    if (this.activeCharacterId === id) {
+      this.openDetailModal(id);
+    }
+    if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('victory');
+    App.showToast(`🌙 ${char.name} realizou um Descanso Longo! PVs e Magias 100% recuperados.`);
+  },
+
+  /**
+   * Renderiza a grade de fichas dos jogadores
+   */
   render() {
     const container = document.getElementById('players-grid');
     if (!container) return;
@@ -55,8 +190,11 @@ const SheetsModule = {
         <div class="empty-state">
           <div class="empty-icon">🛡️</div>
           <h3>Nenhum herói cadastrado</h3>
-          <p>Adicione as fichas dos seus jogadores para começar a gerenciar sua campanha.</p>
-          <button class="btn btn-primary" onclick="SheetsModule.openCreateModal()">+ Criar Primeira Ficha</button>
+          <p>Adicione as fichas dos seus jogadores ou restaure as fichas padrão para começar a gerenciar sua campanha.</p>
+          <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
+            <button class="btn btn-primary" onclick="SheetsModule.openFullEditModal()">+ Criar Primeira Ficha</button>
+            <button class="btn btn-secondary" onclick="SheetsModule.resetDefaultPlayers()">🔄 Carregar Heróis Padrão</button>
+          </div>
         </div>
       `;
       return;
@@ -68,6 +206,8 @@ const SheetsModule = {
       if (hpPercent <= 25) hpColor = 'var(--hp-red)';
       else if (hpPercent <= 50) hpColor = 'var(--hp-yellow)';
 
+      const prof = p.proficiencyBonus || this.calculateProficiency(p.level);
+
       return `
         <div class="card character-card" onclick="SheetsModule.openDetailModal('${p.id}')">
           <div class="character-card-header">
@@ -77,8 +217,17 @@ const SheetsModule = {
                 <h3 class="character-name">${p.name}</h3>
                 ${p.inspiration ? '<span class="badge badge-gold" title="Inspiração Ativa">⭐ Inspiração</span>' : ''}
               </div>
-              <div class="character-sub">${p.characterClass} Nv ${p.level} • ${p.race}</div>
-              <div class="character-player">Jogador: <strong>${p.playerName || 'Desconhecido'}</strong></div>
+              <div class="character-sub">${p.characterClass}${p.subclass ? ` (${p.subclass})` : ''} • ${p.race}</div>
+
+              <!-- Seletor Rápido de Nível na Ficha -->
+              <div class="level-stepper-wrap" onclick="event.stopPropagation()">
+                <button type="button" class="level-btn" onclick="SheetsModule.changeLevel('${p.id}', -1)" title="Diminuir Nível">−</button>
+                <span class="level-badge">Nível <strong>${p.level}</strong></span>
+                <button type="button" class="level-btn" onclick="SheetsModule.changeLevel('${p.id}', 1)" title="Aumentar Nível">+</button>
+                <span class="prof-badge" title="Bônus de Proficiência">+${prof} Prof</span>
+              </div>
+
+              <div class="character-player">Jogador: <strong>${p.playerName || 'Mestre'}</strong></div>
             </div>
           </div>
 
@@ -89,15 +238,15 @@ const SheetsModule = {
             </div>
             <div class="stat-pill">
               <span class="stat-label">Iniciativa</span>
-              <span class="stat-value">${this.formatMod(p.initiativeMod || this.calculateMod(p.stats.dex))}</span>
+              <span class="stat-value">${this.formatMod(p.initiativeMod !== undefined ? p.initiativeMod : this.calculateMod(p.stats.dex))}</span>
             </div>
             <div class="stat-pill">
-              <span class="stat-label">Deslocamento</span>
+              <span class="stat-label">Desloc.</span>
               <span class="stat-value">${p.speed}m</span>
             </div>
             <div class="stat-pill">
               <span class="stat-label">Percepção</span>
-              <span class="stat-value">${p.passivePerception || 10}</span>
+              <span class="stat-value">${p.passivePerception || (10 + this.getSkillMod(p, { key: 'perception', attr: 'wis' }))}</span>
             </div>
           </div>
 
@@ -113,10 +262,13 @@ const SheetsModule = {
 
           <div class="card-actions" onclick="event.stopPropagation()">
             <button class="btn btn-sm btn-combat" onclick="CombatModule.addFromPlayer('${p.id}')">
-              ⚔️ Enviar ao Combate
+              ⚔️ Combate
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="SheetsModule.openFullEditModal('${p.id}')">
+              ✏️ Editar
             </button>
             <button class="btn btn-sm btn-secondary" onclick="SheetsModule.openDetailModal('${p.id}')">
-              📜 Ver Ficha
+              📜 Ficha
             </button>
           </div>
         </div>
@@ -124,6 +276,9 @@ const SheetsModule = {
     }).join('');
   },
 
+  /**
+   * Abre o Modal Detalhado da Ficha Oficial D&D 5e
+   */
   openDetailModal(id) {
     const char = this.getById(id);
     if (!char) return;
@@ -140,7 +295,7 @@ const SheetsModule = {
     const wisMod = this.calculateMod(char.stats.wis);
     const chaMod = this.calculateMod(char.stats.cha);
 
-    const prof = char.proficiencyBonus || 2;
+    const prof = char.proficiencyBonus || this.calculateProficiency(char.level);
 
     content.innerHTML = `
       <div class="sheet-container">
@@ -154,11 +309,18 @@ const SheetsModule = {
               <h2 class="sheet-hero-name">${char.name}</h2>
               <div class="sheet-badges">
                 <span class="badge badge-accent">${char.race}</span>
-                <span class="badge badge-purple">${char.characterClass} Nível ${char.level}</span>
+                <span class="badge badge-purple">${char.characterClass}${char.subclass ? ` (${char.subclass})` : ''}</span>
+                <div class="level-stepper-wrap" style="margin: 0;">
+                  <button type="button" class="level-btn" onclick="SheetsModule.changeLevel('${char.id}', -1)" title="Diminuir Nível">−</button>
+                  <span class="level-badge">Nível <strong>${char.level}</strong></span>
+                  <button type="button" class="level-btn" onclick="SheetsModule.changeLevel('${char.id}', 1)" title="Aumentar Nível">+</button>
+                </div>
                 <span class="badge badge-outline">${char.alignment || 'Neutro'}</span>
                 <span class="badge badge-dark">Jogador: ${char.playerName || 'Mestre'}</span>
+                ${char.inspiration ? '<span class="badge badge-gold">⭐ Inspiração Ativa</span>' : ''}
               </div>
             </div>
+
             <div class="sheet-quick-vitals">
               <div class="vital-box">
                 <div class="vital-label">Classe de Armadura (CA)</div>
@@ -170,28 +332,30 @@ const SheetsModule = {
               </div>
               <div class="vital-box">
                 <div class="vital-label">Bônus Proficiência</div>
-                <div class="vital-value">+${prof}</div>
+                <div class="vital-value" style="color: #c084fc;">+${prof}</div>
               </div>
               <div class="vital-box">
-                <div class="vital-label">Percepção Passiva</div>
-                <div class="vital-value">${char.passivePerception || 10}</div>
+                <div class="vital-label">Deslocamento</div>
+                <div class="vital-value">${char.speed}m</div>
               </div>
             </div>
           </div>
+
           <div class="sheet-actions-top">
+            <button class="btn btn-sm btn-primary" onclick="SheetsModule.openFullEditModal('${char.id}')">✏️ Editar Ficha Completa</button>
+            <button class="btn btn-sm btn-outline" onclick="SheetsModule.restLong('${char.id}')" title="Recupera 100% dos PVs e Espaços de Magia">🌙 Descanso Longo</button>
             <button class="btn btn-sm btn-combat" onclick="CombatModule.addFromPlayer('${char.id}')">⚔️ Combate</button>
-            <button class="btn btn-sm btn-secondary" onclick="SheetsModule.openEditModal('${char.id}')">✏️ Editar</button>
             <button class="btn btn-sm btn-danger" onclick="SheetsModule.delete('${char.id}')">🗑️ Excluir</button>
           </div>
         </div>
 
-        <!-- PV e Dados de Vida -->
+        <!-- Painel de PV e Gestão Rápida de Dano / Cura -->
         <div class="sheet-hp-panel">
           <div class="sheet-hp-display">
             <div class="hp-info-row">
-              <span>Pontos de Vida Atuais: <strong id="sheet-hp-val">${char.hpCurrent}</strong> / ${char.hpMax}</span>
+              <span>Pontos de Vida: <strong id="sheet-hp-val">${char.hpCurrent}</strong> / ${char.hpMax}</span>
               ${char.hpTemp > 0 ? `<span class="hp-temp">+${char.hpTemp} Temporários</span>` : ''}
-              <span>Dados de Vida: <strong>${char.hitDice || '1d8'}</strong></span>
+              <span>Dados de Vida: <strong>${char.hitDice || `${char.level}d8`}</strong></span>
             </div>
             <div class="hp-bar-bg" style="height: 10px;">
               <div class="hp-bar-fill" id="sheet-hp-bar" style="width: ${Math.max(0, Math.min(100, (char.hpCurrent / char.hpMax) * 100))}%; background: var(--hp-green);"></div>
@@ -247,15 +411,58 @@ const SheetsModule = {
           </div>
         </div>
 
-        <!-- Abas Internas da Ficha: Ataques, Habilidades, Magias, Inventário -->
+        <!-- Abas Internas da Ficha: Perícias & Salvaguardas, Ataques, Características, Magias, Inventário -->
         <div class="sheet-tabs-nav">
-          <button class="sheet-tab-btn active" onclick="SheetsModule.switchSubTab('attacks', this)">⚔️ Ataques & Ações</button>
+          <button class="sheet-tab-btn active" onclick="SheetsModule.switchSubTab('skills', this)">🎯 Perícias & Salvaguardas</button>
+          <button class="sheet-tab-btn" onclick="SheetsModule.switchSubTab('attacks', this)">⚔️ Ataques & Ações</button>
           <button class="sheet-tab-btn" onclick="SheetsModule.switchSubTab('traits', this)">🌟 Características & Talentos</button>
           <button class="sheet-tab-btn" onclick="SheetsModule.switchSubTab('spells', this)">✨ Magias & Espaços</button>
           <button class="sheet-tab-btn" onclick="SheetsModule.switchSubTab('inventory', this)">🎒 Equipamento & Notas</button>
         </div>
 
-        <div class="sheet-tab-content" id="subtab-attacks">
+        <!-- Aba de Perícias & Salvaguardas -->
+        <div class="sheet-tab-content" id="subtab-skills">
+          <h4 style="color: var(--text-gold); margin-bottom: 0.5rem;">🛡️ Testes de Resistência (Salvaguardas)</h4>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+            ${['str', 'dex', 'con', 'int', 'wis', 'cha'].map(a => {
+              const label = { str: 'FOR', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' }[a];
+              const saveMod = this.getSaveMod(char, a);
+              const isProf = !!(char.saves && char.saves[a]);
+              return `
+                <div class="skill-pill-item" style="min-width: 130px;" onclick="DiceRoller.roll(20, 1, ${saveMod}); App.showToast('Rolou Salvaguarda de ${label} (${SheetsModule.formatMod(saveMod)})!')">
+                  <div class="skill-pill-left">
+                    <span class="skill-prof-dot ${isProf ? 'active' : ''}"></span>
+                    <strong class="skill-name-label">${label}</strong>
+                  </div>
+                  <span class="skill-mod-val">${this.formatMod(saveMod)}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <h4 style="color: var(--text-gold); margin-bottom: 0.5rem;">🎯 18 Perícias Oficiais D&D 5e (Clique para Rolar d20)</h4>
+          <div class="skills-detail-grid">
+            ${this.SKILLS_DEF.map(s => {
+              const mod = this.getSkillMod(char, s);
+              const isProf = !!(char.skills && char.skills[s.key]);
+              return `
+                <div class="skill-pill-item" onclick="DiceRoller.roll(20, 1, ${mod}); App.showToast('Rolou ${s.name} (${SheetsModule.formatMod(mod)})!')">
+                  <div class="skill-pill-left">
+                    <span class="skill-prof-dot ${isProf ? 'active' : ''}"></span>
+                    <div>
+                      <div class="skill-name-label">${s.name}</div>
+                      <div class="skill-attr-tag">${s.attr}</div>
+                    </div>
+                  </div>
+                  <span class="skill-mod-val">${this.formatMod(mod)}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Aba de Ataques -->
+        <div class="sheet-tab-content" id="subtab-attacks" style="display: none;">
           <div class="attacks-list">
             ${(char.attacks || []).map(atk => `
               <div class="attack-card">
@@ -264,14 +471,22 @@ const SheetsModule = {
                   <span class="badge badge-accent">${atk.bonus} para acertar</span>
                 </div>
                 <div class="attack-damage">${atk.damage}</div>
-                <button class="btn btn-xs btn-primary" onclick="DiceRoller.rollFormula('1d20${atk.bonus}'); App.showToast('Ataque com ${atk.name}!')">
-                  🎲 Rolar Ataque
-                </button>
+                <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem;">
+                  <button class="btn btn-xs btn-primary" onclick="DiceRoller.rollFormula('1d20${atk.bonus}'); App.showToast('Ataque com ${atk.name}!')">
+                    🎲 Rolar Ataque
+                  </button>
+                  ${atk.damage.match(/\d+d\d+/) ? `
+                    <button class="btn btn-xs btn-outline" onclick="DiceRoller.rollFormula('${atk.damage.match(/[\dd+-]+/)[0]}'); App.showToast('Dano de ${atk.name}!')">
+                      💥 Rolar Dano
+                    </button>
+                  ` : ''}
+                </div>
               </div>
-            `).join('') || '<p class="text-muted">Nenhum ataque cadastrado.</p>'}
+            `).join('') || '<p class="text-muted">Nenhum ataque cadastrado. Use o botão Editar Ficha para adicionar armas.</p>'}
           </div>
         </div>
 
+        <!-- Aba de Características -->
         <div class="sheet-tab-content" id="subtab-traits" style="display: none;">
           <div class="traits-list">
             ${(char.traits || []).map(t => `
@@ -283,9 +498,10 @@ const SheetsModule = {
           </div>
         </div>
 
+        <!-- Aba de Magias -->
         <div class="sheet-tab-content" id="subtab-spells" style="display: none;">
           <div class="spell-slots-tracker">
-            <h4>Espaços de Magia</h4>
+            <h4>Espaços de Magia por Círculo</h4>
             <div class="slots-row">
               ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(lvl => {
                 const slot = (char.spellSlots && char.spellSlots[lvl]) || { max: 0, used: 0 };
@@ -298,17 +514,17 @@ const SheetsModule = {
                     <button class="btn btn-xs btn-outline" onclick="SheetsModule.restoreSpellSlot('${char.id}', ${lvl})">+1 Slot</button>
                   </div>
                 `;
-              }).join('') || '<span class="text-muted">Este personagem não possui espaços de magia ativos no nível atual.</span>'}
+              }).join('') || '<span class="text-muted">Este personagem não possui espaços de magia configurados. Edite a ficha para definir espaços do 1º ao 9º círculo.</span>'}
             </div>
           </div>
 
           <div class="character-spells-list">
-            <h4>Grimório de Magias Conhecidas</h4>
+            <h4>Grimório de Magias Conhecidas & Preparadas</h4>
             <div class="spells-grid-cards">
               ${(char.spells || []).map(sp => `
                 <div class="spell-card-mini">
                   <div class="spell-card-mini-title">${sp.name}</div>
-                  <div class="spell-card-mini-meta">${sp.level === 0 ? 'Truque' : sp.level + 'º Nível'} • ${sp.school}</div>
+                  <div class="spell-card-mini-meta">${sp.level === 0 ? 'Truque' : sp.level + 'º Círculo'} • ${sp.school || 'Magia'}</div>
                   <div class="spell-card-mini-desc">${sp.desc}</div>
                 </div>
               `).join('') || '<p class="text-muted">Nenhuma magia adicionada.</p>'}
@@ -316,11 +532,22 @@ const SheetsModule = {
           </div>
         </div>
 
+        <!-- Aba de Inventário & Notas -->
         <div class="sheet-tab-content" id="subtab-inventory" style="display: none;">
           <div class="inventory-section">
-            <h4>🎒 Itens & Equipamentos</h4>
+            <h4 style="color: var(--text-gold); margin-bottom: 0.5rem;">💰 Riqueza & Moedas</h4>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+              <span class="badge badge-gold">PO: ${char.coins?.gp || 0}</span>
+              <span class="badge badge-accent">PP: ${char.coins?.sp || 0}</span>
+              <span class="badge badge-outline">PC: ${char.coins?.cp || 0}</span>
+              <span class="badge badge-purple">PE: ${char.coins?.ep || 0}</span>
+              <span class="badge badge-dark">PL: ${char.coins?.pp || 0}</span>
+            </div>
+
+            <h4 style="color: var(--text-gold); margin-bottom: 0.5rem;">🎒 Itens & Equipamentos</h4>
             <div class="inventory-box">${char.inventory ? char.inventory.replace(/\n/g, '<br>') : 'Mochila vazia.'}</div>
-            <h4 style="margin-top: 1rem;">📜 Histórico & Anotações</h4>
+
+            <h4 style="color: var(--text-gold); margin-top: 1.25rem; margin-bottom: 0.5rem;">📜 Histórico & Anotações</h4>
             <div class="inventory-box">${char.notes ? char.notes.replace(/\n/g, '<br>') : 'Sem anotações.'}</div>
           </div>
         </div>
@@ -334,7 +561,7 @@ const SheetsModule = {
     document.querySelectorAll('.sheet-tab-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
 
-    ['attacks', 'traits', 'spells', 'inventory'].forEach(t => {
+    ['skills', 'attacks', 'traits', 'spells', 'inventory'].forEach(t => {
       const el = document.getElementById('subtab-' + t);
       if (el) el.style.display = t === tabName ? 'block' : 'none';
     });
@@ -345,7 +572,9 @@ const SheetsModule = {
     if (!char) return;
     char.hpCurrent = Math.max(0, Math.min(char.hpMax, char.hpCurrent + amount));
     this.save(char);
-    this.openDetailModal(id);
+    if (this.activeCharacterId === id) {
+      this.openDetailModal(id);
+    }
     App.showToast(`${char.name}: ${char.hpCurrent}/${char.hpMax} PV`);
   },
 
@@ -357,10 +586,10 @@ const SheetsModule = {
 
     if (type === 'damage') {
       this.adjustHP(id, -val);
-      AudioStudio.playSFX('slash');
+      if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('slash');
     } else {
       this.adjustHP(id, val);
-      AudioStudio.playSFX('victory');
+      if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('victory');
     }
     input.value = '';
   },
@@ -372,7 +601,7 @@ const SheetsModule = {
       char.spellSlots[level].used++;
       this.save(char);
       this.openDetailModal(id);
-      AudioStudio.playSFX('fireball');
+      if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('fireball');
     }
   },
 
@@ -392,30 +621,47 @@ const SheetsModule = {
     this.activeCharacterId = null;
   },
 
-  openCreateModal() {
-    this.openEditModal(null);
-  },
-
-  openEditModal(id) {
+  /**
+   * Abre o Editor Completo de Ficha com abas e controle total
+   */
+  openFullEditModal(id) {
     const isEdit = !!id;
-    const char = isEdit ? this.getById(id) : {
+    const char = isEdit ? JSON.parse(JSON.stringify(this.getById(id))) : {
       id: 'char_' + Date.now(),
       name: '',
       playerName: '',
       race: 'Humano',
       characterClass: 'Guerreiro',
+      subclass: '',
       level: 1,
+      xp: 0,
+      alignment: 'Neutro e Bom',
+      background: '',
+      inspiration: false,
       ac: 14,
       hpMax: 12,
       hpCurrent: 12,
-      speed: 30,
+      hpTemp: 0,
+      hitDice: '1d10',
+      speed: 9,
       initiativeMod: 0,
       passivePerception: 10,
+      proficiencyBonus: 2,
       stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-      attacks: [{ name: 'Ataque Básico', bonus: '+3', damage: '1d8+2' }],
-      traits: [],
-      inventory: '',
-      notes: ''
+      saves: { str: false, dex: false, con: false, int: false, wis: false, cha: false },
+      skills: {},
+      attacks: [{ name: 'Espada Longa', bonus: '+4', damage: '1d8+2 Cortante' }],
+      traits: [{ name: 'Estilo de Luta', desc: 'Defesa (+1 na CA quando usando armadura)' }],
+      spells: [],
+      spellSlots: {
+        1: { max: 0, used: 0 },
+        2: { max: 0, used: 0 },
+        3: { max: 0, used: 0 }
+      },
+      coins: { gp: 10, sp: 0, cp: 0, ep: 0, pp: 0 },
+      inventory: 'Mochila de aventureiro, rações, tochas.',
+      notes: '',
+      avatar: 'assets/characters/thorin.jpg'
     };
 
     const modal = document.getElementById('form-modal');
@@ -423,91 +669,283 @@ const SheetsModule = {
     const body = document.getElementById('form-modal-body');
     if (!modal || !title || !body) return;
 
-    title.innerText = isEdit ? `Editar Ficha: ${char.name}` : 'Criar Nova Ficha de Personagem';
+    // Amplia o modal temporariamente para edição rica
+    const modalWindow = modal.querySelector('.modal-window');
+    if (modalWindow) modalWindow.style.maxWidth = '880px';
+
+    title.innerText = isEdit ? `Editar Ficha Completa: ${char.name}` : 'Criar Nova Ficha de Personagem';
+
     body.innerHTML = `
-      <form id="char-form" onsubmit="SheetsModule.handleFormSubmit(event, '${char.id}', ${isEdit})">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Nome do Personagem *</label>
-            <input type="text" id="form-name" class="input" value="${char.name}" required />
+      <form id="full-char-form" onsubmit="SheetsModule.handleFullFormSubmit(event, '${char.id}', ${isEdit})">
+        <div class="editor-tabs-nav">
+          <button type="button" class="editor-tab-btn active" onclick="SheetsModule.switchEditorTab('basic', this)">1. Básico & Nível</button>
+          <button type="button" class="editor-tab-btn" onclick="SheetsModule.switchEditorTab('vitals', this)">2. Vida & Defesa</button>
+          <button type="button" class="editor-tab-btn" onclick="SheetsModule.switchEditorTab('stats', this)">3. Atributos & Salvaguardas</button>
+          <button type="button" class="editor-tab-btn" onclick="SheetsModule.switchEditorTab('skills', this)">4. 18 Perícias D&D</button>
+          <button type="button" class="editor-tab-btn" onclick="SheetsModule.switchEditorTab('attacks', this)">5. Ataques & Armas</button>
+          <button type="button" class="editor-tab-btn" onclick="SheetsModule.switchEditorTab('traits', this)">6. Talentos & Habilidades</button>
+          <button type="button" class="editor-tab-btn" onclick="SheetsModule.switchEditorTab('spells', this)">7. Magias & Espaços</button>
+          <button type="button" class="editor-tab-btn" onclick="SheetsModule.switchEditorTab('inventory', this)">8. Riqueza & Mochila</button>
+        </div>
+
+        <!-- ABA 1: Identidade & Nível -->
+        <div class="editor-tab-pane active" id="edtab-basic">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Nome do Personagem *</label>
+              <input type="text" id="ef-name" class="input" value="${char.name}" required placeholder="Ex: Jeremias" />
+            </div>
+            <div class="form-group">
+              <label>Nome do Jogador</label>
+              <input type="text" id="ef-player" class="input" value="${char.playerName || ''}" placeholder="Ex: Lucas" />
+            </div>
           </div>
+
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label>Raça</label>
+              <input type="text" id="ef-race" class="input" value="${char.race || ''}" placeholder="Ex: Meio-Orc, Elfo, Humano" />
+            </div>
+            <div class="form-group">
+              <label>Classe</label>
+              <input type="text" id="ef-class" class="input" value="${char.characterClass || ''}" placeholder="Ex: Bárbaro, Druida, Mago" />
+            </div>
+            <div class="form-group">
+              <label>Subclasse / Caminho</label>
+              <input type="text" id="ef-subclass" class="input" value="${char.subclass || ''}" placeholder="Ex: Caminho do Furioso, Círculo da Lua" />
+            </div>
+          </div>
+
+          <div class="form-grid-4">
+            <div class="form-group">
+              <label>Nível (1 a 20) *</label>
+              <input type="number" id="ef-level" class="input" value="${char.level || 1}" min="1" max="20" required onchange="SheetsModule.updateEditorProficiencyPreview()" />
+            </div>
+            <div class="form-group">
+              <label>XP (Experiência)</label>
+              <input type="number" id="ef-xp" class="input" value="${char.xp || 0}" />
+            </div>
+            <div class="form-group">
+              <label>Tendência</label>
+              <input type="text" id="ef-alignment" class="input" value="${char.alignment || 'Neutro'}" placeholder="Ex: Caótico e Bom" />
+            </div>
+            <div class="form-group">
+              <label>Inspiração</label>
+              <select id="ef-inspiration" class="select">
+                <option value="false" ${!char.inspiration ? 'selected' : ''}>Não</option>
+                <option value="true" ${char.inspiration ? 'selected' : ''}>⭐ Sim (Ativa)</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-group">
-            <label>Nome do Jogador</label>
-            <input type="text" id="form-player" class="input" value="${char.playerName || ''}" />
+            <label>Avatar / Retrato do Personagem</label>
+            <input type="text" id="ef-avatar" class="input" value="${char.avatar || 'assets/characters/thorin.jpg'}" placeholder="Caminho da imagem ou URL" />
+            <div class="avatar-preset-row">
+              ${this.AVATAR_PRESETS.map(av => `
+                <img src="${av.url}" class="avatar-preset-thumb ${char.avatar === av.url ? 'selected' : ''}" title="${av.name}" onclick="document.getElementById('ef-avatar').value='${av.url}'; document.querySelectorAll('.avatar-preset-thumb').forEach(t=>t.classList.remove('selected')); this.classList.add('selected');" />
+              `).join('')}
+            </div>
           </div>
         </div>
 
-        <div class="form-row-3">
-          <div class="form-group">
-            <label>Classe</label>
-            <input type="text" id="form-class" class="input" value="${char.characterClass || ''}" required />
+        <!-- ABA 2: Vida & Defesa -->
+        <div class="editor-tab-pane" id="edtab-vitals">
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label>Classe de Armadura (CA) *</label>
+              <input type="number" id="ef-ac" class="input" value="${char.ac || 10}" required />
+            </div>
+            <div class="form-group">
+              <label>PV Máximos *</label>
+              <input type="number" id="ef-hp-max" class="input" value="${char.hpMax || 10}" required />
+            </div>
+            <div class="form-group">
+              <label>PV Atuais *</label>
+              <input type="number" id="ef-hp-current" class="input" value="${char.hpCurrent || 10}" required />
+            </div>
           </div>
-          <div class="form-group">
-            <label>Nível</label>
-            <input type="number" id="form-level" class="input" value="${char.level || 1}" min="1" max="20" required />
-          </div>
-          <div class="form-group">
-            <label>Raça</label>
-            <input type="text" id="form-race" class="input" value="${char.race || ''}" required />
+
+          <div class="form-grid-4">
+            <div class="form-group">
+              <label>PV Temporários</label>
+              <input type="number" id="ef-hp-temp" class="input" value="${char.hpTemp || 0}" />
+            </div>
+            <div class="form-group">
+              <label>Dados de Vida</label>
+              <input type="text" id="ef-hitdice" class="input" value="${char.hitDice || `${char.level}d8`}" placeholder="Ex: 5d12, 3d8" />
+            </div>
+            <div class="form-group">
+              <label>Deslocamento (metros)</label>
+              <input type="number" step="0.5" id="ef-speed" class="input" value="${char.speed || 9}" />
+            </div>
+            <div class="form-group">
+              <label>Bônus de Iniciativa</label>
+              <input type="number" id="ef-init" class="input" value="${char.initiativeMod !== undefined ? char.initiativeMod : 0}" />
+            </div>
           </div>
         </div>
 
-        <div class="form-row-3">
-          <div class="form-group">
-            <label>Classe de Armadura (CA)</label>
-            <input type="number" id="form-ac" class="input" value="${char.ac || 10}" required />
-          </div>
-          <div class="form-group">
-            <label>Pontos de Vida Máximos (PV)</label>
-            <input type="number" id="form-hp-max" class="input" value="${char.hpMax || 10}" required />
-          </div>
-          <div class="form-group">
-            <label>PV Atual</label>
-            <input type="number" id="form-hp-current" class="input" value="${char.hpCurrent || 10}" required />
-          </div>
-        </div>
-
-        <h4>Atributos Principais (Valores de 1 a 30)</h4>
-        <div class="form-row-6">
-          <div class="form-group">
-            <label>FOR</label>
-            <input type="number" id="form-str" class="input" value="${char.stats.str}" min="1" max="30" />
-          </div>
-          <div class="form-group">
-            <label>DES</label>
-            <input type="number" id="form-dex" class="input" value="${char.stats.dex}" min="1" max="30" />
-          </div>
-          <div class="form-group">
-            <label>CON</label>
-            <input type="number" id="form-con" class="input" value="${char.stats.con}" min="1" max="30" />
-          </div>
-          <div class="form-group">
-            <label>INT</label>
-            <input type="number" id="form-int" class="input" value="${char.stats.int}" min="1" max="30" />
-          </div>
-          <div class="form-group">
-            <label>SAB</label>
-            <input type="number" id="form-wis" class="input" value="${char.stats.wis}" min="1" max="30" />
-          </div>
-          <div class="form-group">
-            <label>CAR</label>
-            <input type="number" id="form-cha" class="input" value="${char.stats.cha}" min="1" max="30" />
+        <!-- ABA 3: Atributos & Salvaguardas -->
+        <div class="editor-tab-pane" id="edtab-stats">
+          <p class="text-muted" style="margin-bottom: 0.75rem; font-size: 0.85rem;">
+            Defina a pontuação de cada atributo (1 a 30) e marque as caixas das salvaguardas que o personagem tem proficiência:
+          </p>
+          <div class="form-grid-6">
+            ${[
+              { key: 'str', label: 'FORÇA', val: char.stats.str },
+              { key: 'dex', label: 'DESTREZA', val: char.stats.dex },
+              { key: 'con', label: 'CONSTITUIÇÃO', val: char.stats.con },
+              { key: 'int', label: 'INTELIGÊNCIA', val: char.stats.int },
+              { key: 'wis', label: 'SABEDORIA', val: char.stats.wis },
+              { key: 'cha', label: 'CARISMA', val: char.stats.cha }
+            ].map(a => `
+              <div class="form-group" style="text-align: center;">
+                <label style="font-size: 0.8rem; font-weight: 700;">${a.label}</label>
+                <input type="number" id="ef-stat-${a.key}" class="input" value="${a.val || 10}" min="1" max="30" style="text-align: center; font-size: 1.1rem; font-weight: 700;" oninput="SheetsModule.updateEditorSkillsPreview()" />
+                <label style="display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin-top: 0.4rem; font-size: 0.72rem; cursor: pointer;">
+                  <input type="checkbox" id="ef-save-${a.key}" ${char.saves && char.saves[a.key] ? 'checked' : ''} /> Prof. Salva
+                </label>
+              </div>
+            `).join('')}
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Equipamento & Itens</label>
-          <textarea id="form-inventory" class="textarea" rows="3">${char.inventory || ''}</textarea>
+        <!-- ABA 4: 18 Perícias Oficiais D&D 5e -->
+        <div class="editor-tab-pane" id="edtab-skills">
+          <p class="text-muted" style="margin-bottom: 0.75rem; font-size: 0.85rem;">
+            Marque as perícias treinadas pelo herói. O bônus final é calculado automaticamente somando o modificador do atributo com a proficiência do nível:
+          </p>
+          <div class="skills-form-grid" id="editor-skills-checklist">
+            ${this.SKILLS_DEF.map(s => {
+              const isChecked = !!(char.skills && char.skills[s.key]);
+              const mod = this.getSkillMod(char, s);
+              return `
+                <div class="skill-form-item">
+                  <label>
+                    <input type="checkbox" id="ef-skill-${s.key}" ${isChecked ? 'checked' : ''} onchange="SheetsModule.updateEditorSkillsPreview()" />
+                    <span>${s.name} <small class="text-muted">(${s.attr.toUpperCase()})</small></span>
+                  </label>
+                  <strong class="skill-mod-val" id="ef-skill-val-${s.key}">${this.formatMod(mod)}</strong>
+                </div>
+              `;
+            }).join('')}
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Anotações da Campanha</label>
-          <textarea id="form-notes" class="textarea" rows="3">${char.notes || ''}</textarea>
+        <!-- ABA 5: Ataques & Armas -->
+        <div class="editor-tab-pane" id="edtab-attacks">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <p class="text-muted" style="margin: 0; font-size: 0.85rem;">Armas, ataques desarmados e magias de ataque:</p>
+            <button type="button" class="btn btn-xs btn-outline" onclick="SheetsModule.addEditorAttackRow()">+ Adicionar Ataque</button>
+          </div>
+          <div id="editor-attacks-list">
+            ${(char.attacks && char.attacks.length > 0 ? char.attacks : [{ name: 'Ataque Básico', bonus: '+4', damage: '1d8+2' }]).map((atk, idx) => `
+              <div class="dynamic-row" id="atk-row-${idx}">
+                <input type="text" class="input input-sm atk-name" value="${atk.name}" placeholder="Nome da Arma/Ataque" />
+                <input type="text" class="input input-sm atk-bonus" value="${atk.bonus}" placeholder="Bônus (+5)" />
+                <input type="text" class="input input-sm atk-damage" value="${atk.damage}" placeholder="Dano (1d12+3 Cortante)" />
+                <input type="text" class="input input-sm atk-range" value="${atk.range || 'Corpo a corpo 1,5m'}" placeholder="Alcance/Propriedades" />
+                <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
+              </div>
+            `).join('')}
+          </div>
         </div>
 
-        <div class="form-actions">
+        <!-- ABA 6: Talentos & Características -->
+        <div class="editor-tab-pane" id="edtab-traits">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <p class="text-muted" style="margin: 0; font-size: 0.85rem;">Habilidades raciais, de classe e talentos especiais:</p>
+            <button type="button" class="btn btn-xs btn-outline" onclick="SheetsModule.addEditorTraitRow()">+ Adicionar Habilidade</button>
+          </div>
+          <div id="editor-traits-list">
+            ${(char.traits && char.traits.length > 0 ? char.traits : [{ name: 'Habilidade Especial', desc: 'Descrição do efeito' }]).map((t, idx) => `
+              <div class="dynamic-trait-row" id="trait-row-${idx}">
+                <input type="text" class="input input-sm trait-name" value="${t.name}" placeholder="Nome da Habilidade" />
+                <input type="text" class="input input-sm trait-desc" value="${t.desc}" placeholder="Descrição detalhada do poder/talento" />
+                <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- ABA 7: Magias & Espaços -->
+        <div class="editor-tab-pane" id="edtab-spells">
+          <h4 style="color: var(--text-gold); margin-bottom: 0.5rem;">Espaços de Magia por Círculo (Defina o Máximo de Espaços)</h4>
+          <div class="spell-slots-grid-editor">
+            ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(lvl => {
+              const slot = (char.spellSlots && char.spellSlots[lvl]) || { max: 0, used: 0 };
+              return `
+                <div class="spell-slot-cell">
+                  <label>${lvl}º Círculo</label>
+                  <div class="spell-slot-inputs">
+                    <span>Máx:</span>
+                    <input type="number" id="ef-slot-max-${lvl}" class="input input-sm" value="${slot.max}" min="0" max="9" style="width: 45px; text-align: center;" />
+                    <span>Usados:</span>
+                    <input type="number" id="ef-slot-used-${lvl}" class="input input-sm" value="${slot.used}" min="0" max="9" style="width: 45px; text-align: center;" />
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin: 1rem 0 0.5rem 0;">
+            <h4 style="color: var(--text-gold); margin: 0;">Lista de Magias Conhecidas</h4>
+            <button type="button" class="btn btn-xs btn-outline" onclick="SheetsModule.addEditorSpellRow()">+ Adicionar Magia</button>
+          </div>
+          <div id="editor-spells-list">
+            ${(char.spells || []).map((sp, idx) => `
+              <div class="dynamic-spell-row" id="spell-row-${idx}">
+                <input type="text" class="input input-sm sp-name" value="${sp.name}" placeholder="Nome da Magia" />
+                <input type="number" class="input input-sm sp-level" value="${sp.level !== undefined ? sp.level : 1}" placeholder="Círculo (0-9)" min="0" max="9" />
+                <input type="text" class="input input-sm sp-school" value="${sp.school || 'Evocação'}" placeholder="Escola" />
+                <input type="text" class="input input-sm sp-desc" value="${sp.desc || ''}" placeholder="Efeito / Descrição" />
+                <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- ABA 8: Riqueza, Equipamento & Notas -->
+        <div class="editor-tab-pane" id="edtab-inventory">
+          <h4 style="color: var(--text-gold); margin-bottom: 0.5rem;">💰 Moedas & Tesouro</h4>
+          <div class="form-grid-6" style="margin-bottom: 1.25rem;">
+            <div class="form-group" style="text-align: center;">
+              <label>Ouro (PO)</label>
+              <input type="number" id="ef-coin-gp" class="input" value="${char.coins?.gp || 0}" style="text-align: center;" />
+            </div>
+            <div class="form-group" style="text-align: center;">
+              <label>Prata (PP)</label>
+              <input type="number" id="ef-coin-sp" class="input" value="${char.coins?.sp || 0}" style="text-align: center;" />
+            </div>
+            <div class="form-group" style="text-align: center;">
+              <label>Cobre (PC)</label>
+              <input type="number" id="ef-coin-cp" class="input" value="${char.coins?.cp || 0}" style="text-align: center;" />
+            </div>
+            <div class="form-group" style="text-align: center;">
+              <label>Electro (PE)</label>
+              <input type="number" id="ef-coin-ep" class="input" value="${char.coins?.ep || 0}" style="text-align: center;" />
+            </div>
+            <div class="form-group" style="text-align: center;">
+              <label>Platina (PL)</label>
+              <input type="number" id="ef-coin-pp" class="input" value="${char.coins?.pp || 0}" style="text-align: center;" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Mochila, Armas Secundárias & Itens Mágicos</label>
+            <textarea id="ef-inventory" class="textarea" rows="4" placeholder="Itens transportados pelo personagem...">${char.inventory || ''}</textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Anotações da Campanha, Diário e Segredos</label>
+            <textarea id="ef-notes" class="textarea" rows="4" placeholder="Ganchos de história, alianças, maldições...">${char.notes || ''}</textarea>
+          </div>
+        </div>
+
+        <div class="form-actions" style="margin-top: 1.5rem;">
           <button type="button" class="btn btn-secondary" onclick="App.closeFormModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary">💾 Salvar Personagem</button>
+          <button type="submit" class="btn btn-primary">💾 Salvar Ficha do Personagem</button>
         </div>
       </form>
     `;
@@ -515,43 +953,273 @@ const SheetsModule = {
     modal.classList.add('active');
   },
 
-  handleFormSubmit(e, id, isEdit) {
+  switchEditorTab(tabKey, btn) {
+    document.querySelectorAll('.editor-tab-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    document.querySelectorAll('.editor-tab-pane').forEach(p => p.classList.remove('active'));
+    const target = document.getElementById('edtab-' + tabKey);
+    if (target) target.classList.add('active');
+  },
+
+  addEditorAttackRow() {
+    const list = document.getElementById('editor-attacks-list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'dynamic-row';
+    row.innerHTML = `
+      <input type="text" class="input input-sm atk-name" placeholder="Nome da Arma/Ataque" />
+      <input type="text" class="input input-sm atk-bonus" placeholder="Bônus (+5)" value="+5" />
+      <input type="text" class="input input-sm atk-damage" placeholder="Dano (1d8+3)" value="1d8+3" />
+      <input type="text" class="input input-sm atk-range" placeholder="Alcance/Propriedades" value="Corpo a corpo 1,5m" />
+      <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
+    `;
+    list.appendChild(row);
+  },
+
+  addEditorTraitRow() {
+    const list = document.getElementById('editor-traits-list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'dynamic-trait-row';
+    row.innerHTML = `
+      <input type="text" class="input input-sm trait-name" placeholder="Nome da Habilidade" />
+      <input type="text" class="input input-sm trait-desc" placeholder="Descrição do poder/talento" />
+      <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
+    `;
+    list.appendChild(row);
+  },
+
+  addEditorSpellRow() {
+    const list = document.getElementById('editor-spells-list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'dynamic-spell-row';
+    row.innerHTML = `
+      <input type="text" class="input input-sm sp-name" placeholder="Nome da Magia" />
+      <input type="number" class="input input-sm sp-level" placeholder="Círculo" value="1" min="0" max="9" />
+      <input type="text" class="input input-sm sp-school" placeholder="Escola" value="Evocação" />
+      <input type="text" class="input input-sm sp-desc" placeholder="Efeito / Descrição" />
+      <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
+    `;
+    list.appendChild(row);
+  },
+
+  updateEditorProficiencyPreview() {
+    this.updateEditorSkillsPreview();
+  },
+
+  updateEditorSkillsPreview() {
+    const levelInput = document.getElementById('ef-level');
+    const level = parseInt(levelInput ? levelInput.value : 1, 10) || 1;
+    const prof = this.calculateProficiency(level);
+
+    this.SKILLS_DEF.forEach(s => {
+      const statInput = document.getElementById(`ef-stat-${s.attr}`);
+      const score = parseInt(statInput ? statInput.value : 10, 10) || 10;
+      const baseMod = this.calculateMod(score);
+      const chk = document.getElementById(`ef-skill-${s.key}`);
+      const isChecked = chk ? chk.checked : false;
+      const total = baseMod + (isChecked ? prof : 0);
+
+      const valEl = document.getElementById(`ef-skill-val-${s.key}`);
+      if (valEl) valEl.innerText = this.formatMod(total);
+    });
+  },
+
+  handleFullFormSubmit(e, id, isEdit) {
     e.preventDefault();
     const existing = isEdit ? this.getById(id) : {};
 
-    const char = {
+    const level = parseInt(document.getElementById('ef-level').value, 10) || 1;
+    const proficiencyBonus = this.calculateProficiency(level);
+
+    // Coleta perícias treinadas
+    const skills = {};
+    this.SKILLS_DEF.forEach(s => {
+      const chk = document.getElementById(`ef-skill-${s.key}`);
+      if (chk && chk.checked) skills[s.key] = true;
+    });
+
+    // Coleta salvaguardas treinadas
+    const saves = {};
+    ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(a => {
+      const chk = document.getElementById(`ef-save-${a}`);
+      if (chk && chk.checked) saves[a] = true;
+    });
+
+    // Coleta ataques da tabela dinâmica
+    const attacks = [];
+    document.querySelectorAll('#editor-attacks-list .dynamic-row').forEach(row => {
+      const name = row.querySelector('.atk-name')?.value.trim();
+      if (name) {
+        attacks.push({
+          name: name,
+          bonus: row.querySelector('.atk-bonus')?.value.trim() || '+0',
+          damage: row.querySelector('.atk-damage')?.value.trim() || '1d6',
+          range: row.querySelector('.atk-range')?.value.trim() || 'Corpo a corpo 1,5m'
+        });
+      }
+    });
+
+    // Coleta talentos da lista dinâmica
+    const traits = [];
+    document.querySelectorAll('#editor-traits-list .dynamic-trait-row').forEach(row => {
+      const name = row.querySelector('.trait-name')?.value.trim();
+      if (name) {
+        traits.push({
+          name: name,
+          desc: row.querySelector('.trait-desc')?.value.trim() || ''
+        });
+      }
+    });
+
+    // Coleta espaços de magia
+    const spellSlots = {};
+    for (let l = 1; l <= 9; l++) {
+      const maxVal = parseInt(document.getElementById(`ef-slot-max-${l}`)?.value, 10) || 0;
+      const usedVal = parseInt(document.getElementById(`ef-slot-used-${l}`)?.value, 10) || 0;
+      if (maxVal > 0) {
+        spellSlots[l] = { max: maxVal, used: Math.min(maxVal, usedVal) };
+      }
+    }
+
+    // Coleta magias conhecidas
+    const spells = [];
+    document.querySelectorAll('#editor-spells-list .dynamic-spell-row').forEach(row => {
+      const name = row.querySelector('.sp-name')?.value.trim();
+      if (name) {
+        spells.push({
+          name: name,
+          level: parseInt(row.querySelector('.sp-level')?.value, 10) || 0,
+          school: row.querySelector('.sp-school')?.value.trim() || 'Evocação',
+          desc: row.querySelector('.sp-desc')?.value.trim() || ''
+        });
+      }
+    });
+
+    const updatedChar = {
       ...existing,
       id: id || ('char_' + Date.now()),
-      name: document.getElementById('form-name').value.trim(),
-      playerName: document.getElementById('form-player').value.trim(),
-      characterClass: document.getElementById('form-class').value.trim(),
-      level: parseInt(document.getElementById('form-level').value, 10) || 1,
-      race: document.getElementById('form-race').value.trim(),
-      ac: parseInt(document.getElementById('form-ac').value, 10) || 10,
-      hpMax: parseInt(document.getElementById('form-hp-max').value, 10) || 10,
-      hpCurrent: parseInt(document.getElementById('form-hp-current').value, 10) || 10,
-      speed: existing.speed || 30,
-      initiativeMod: existing.initiativeMod || 0,
-      passivePerception: existing.passivePerception || 10,
+      name: document.getElementById('ef-name').value.trim(),
+      playerName: document.getElementById('ef-player').value.trim(),
+      race: document.getElementById('ef-race').value.trim(),
+      characterClass: document.getElementById('ef-class').value.trim(),
+      subclass: document.getElementById('ef-subclass').value.trim(),
+      level: level,
+      xp: parseInt(document.getElementById('ef-xp').value, 10) || 0,
+      alignment: document.getElementById('ef-alignment').value.trim(),
+      inspiration: document.getElementById('ef-inspiration').value === 'true',
+      avatar: document.getElementById('ef-avatar').value.trim() || 'assets/characters/thorin.jpg',
+
+      ac: parseInt(document.getElementById('ef-ac').value, 10) || 10,
+      hpMax: parseInt(document.getElementById('ef-hp-max').value, 10) || 10,
+      hpCurrent: parseInt(document.getElementById('ef-hp-current').value, 10) || 10,
+      hpTemp: parseInt(document.getElementById('ef-hp-temp').value, 10) || 0,
+      hitDice: document.getElementById('ef-hitdice').value.trim() || `${level}d8`,
+      speed: parseFloat(document.getElementById('ef-speed').value) || 9,
+      initiativeMod: parseInt(document.getElementById('ef-init').value, 10) || 0,
+      proficiencyBonus: proficiencyBonus,
+
       stats: {
-        str: parseInt(document.getElementById('form-str').value, 10) || 10,
-        dex: parseInt(document.getElementById('form-dex').value, 10) || 10,
-        con: parseInt(document.getElementById('form-con').value, 10) || 10,
-        int: parseInt(document.getElementById('form-int').value, 10) || 10,
-        wis: parseInt(document.getElementById('form-wis').value, 10) || 10,
-        cha: parseInt(document.getElementById('form-cha').value, 10) || 10
+        str: parseInt(document.getElementById('ef-stat-str').value, 10) || 10,
+        dex: parseInt(document.getElementById('ef-stat-dex').value, 10) || 10,
+        con: parseInt(document.getElementById('ef-stat-con').value, 10) || 10,
+        int: parseInt(document.getElementById('ef-stat-int').value, 10) || 10,
+        wis: parseInt(document.getElementById('ef-stat-wis').value, 10) || 10,
+        cha: parseInt(document.getElementById('ef-stat-cha').value, 10) || 10
       },
-      inventory: document.getElementById('form-inventory').value,
-      notes: document.getElementById('form-notes').value,
-      attacks: existing.attacks || [{ name: 'Ataque Padrão', bonus: '+3', damage: '1d8+2' }],
-      traits: existing.traits || [],
-      spells: existing.spells || [],
-      spellSlots: existing.spellSlots || {},
-      avatar: existing.avatar || 'assets/characters/thorin.jpg'
+      saves: saves,
+      skills: skills,
+      attacks: attacks,
+      traits: traits,
+      spellSlots: spellSlots,
+      spells: spells,
+
+      coins: {
+        gp: parseInt(document.getElementById('ef-coin-gp')?.value, 10) || 0,
+        sp: parseInt(document.getElementById('ef-coin-sp')?.value, 10) || 0,
+        cp: parseInt(document.getElementById('ef-coin-cp')?.value, 10) || 0,
+        ep: parseInt(document.getElementById('ef-coin-ep')?.value, 10) || 0,
+        pp: parseInt(document.getElementById('ef-coin-pp')?.value, 10) || 0
+      },
+      inventory: document.getElementById('ef-inventory').value,
+      notes: document.getElementById('ef-notes').value
     };
 
-    this.save(char);
+    this.save(updatedChar);
     App.closeFormModal();
-    App.showToast(`Personagem "${char.name}" salvo com sucesso!`);
+    if (this.activeCharacterId === updatedChar.id) {
+      this.openDetailModal(updatedChar.id);
+    }
+    App.showToast(`Ficha de "${updatedChar.name}" salva com sucesso!`);
+  },
+
+  openCreateModal() {
+    this.openFullEditModal(null);
+  },
+
+  /**
+   * Exporta apenas as fichas em JSON
+   */
+  exportPlayers() {
+    const players = this.getAll();
+    const blob = new Blob([JSON.stringify(players, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fichas_dnd_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    App.showToast('Arquivo de fichas baixado com sucesso!');
+  },
+
+  /**
+   * Importa fichas em JSON
+   */
+  importPlayers() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          const list = Array.isArray(data) ? data : [data];
+          if (list.length === 0 || !list[0].name) {
+            alert('Arquivo inválido: nenhuma ficha encontrada.');
+            return;
+          }
+          DB.set('players', list);
+          this.render();
+          if (typeof App !== 'undefined' && App.renderDashboard) {
+            App.renderDashboard();
+          }
+          App.showToast(`${list.length} ficha(s) importada(s) com sucesso!`);
+        } catch (err) {
+          alert('Erro ao carregar arquivo JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  },
+
+  /**
+   * Restaura os heróis iniciais da campanha
+   */
+  resetDefaultPlayers() {
+    if (!confirm('Deseja restaurar as fichas padrão da campanha? As fichas atuais serão substituídas.')) return;
+    if (typeof DEFAULT_PLAYERS !== 'undefined') {
+      DB.set('players', JSON.parse(JSON.stringify(DEFAULT_PLAYERS)));
+      this.render();
+      if (typeof App !== 'undefined' && App.renderDashboard) {
+        App.renderDashboard();
+      }
+      App.showToast('Heróis padrão restaurados!');
+    }
   }
 };

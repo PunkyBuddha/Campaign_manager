@@ -139,11 +139,17 @@
           <p class="page-subtitle">Gerencie os heróis da campanha, atributos, equipamentos, magias e pontos de vida.</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-secondary" onclick="SheetsModule.importPlayers()" title="Carregar arquivo JSON com fichas">
+            📥 Importar Fichas
+          </button>
+          <button class="btn btn-secondary" onclick="SheetsModule.exportPlayers()" title="Baixar arquivo JSON das fichas atuais">
+            💾 Exportar Fichas
+          </button>
           <button class="btn btn-combat" onclick="CombatModule.addAllParty(); App.switchTab('combat');">
             ⚔️ Enviar Todo o Grupo ao Combate
           </button>
-          <button class="btn btn-primary" onclick="SheetsModule.openCreateModal()">
-            + Nova Ficha de Personagem
+          <button class="btn btn-primary" onclick="SheetsModule.openFullEditModal()">
+            + Nova Ficha
           </button>
         </div>
       </div>
@@ -216,9 +222,15 @@
         <div class="filter-select-wrap">
           <select id="monster-source-filter" class="select" onchange="BestiaryModule.applyFilters()">
             <option value="ALL">Todas as Fontes</option>
-            <option value="Monster Manual">Monster Manual</option>
-            <option value="Volo">Volo's Guide</option>
-            <option value="Mordenkainen">Mordenkainen</option>
+            <option value="Manual dos Monstros">Manual dos Monstros</option>
+            <option value="Volo">Guia do Volo</option>
+            <option value="Inimigos">Guia dos Inimigos (Mordenkainen)</option>
+            <option value="Tirania">Tirania dos Dragões (Tesouro / Tiamat)</option>
+            <option value="Phandelver">A Mina Perdida de Phandelver</option>
+            <option value="Strahd">A Maldição de Strahd</option>
+            <option value="Fora do Abismo">Fora do Abismo</option>
+            <option value="Apocalipse">Príncipes do Apocalipse</option>
+            <option value="Ravnica">Guia de Ravnica</option>
           </select>
         </div>
 
@@ -669,6 +681,7 @@
 
   <!-- Carregamento dos Scripts -->
   <script src="js/data_monsters.js"></script>
+  <script src="js/monster_translator.js"></script>
   <script src="js/data_spells.js"></script>
   <script src="js/data_items.js"></script>
   <script src="js/data_players.js"></script>
