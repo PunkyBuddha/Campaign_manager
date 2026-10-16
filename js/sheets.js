@@ -40,6 +40,20 @@ const SheetsModule = {
   ],
 
   init() {
+    // Sincroniza automaticamente características de classe para personagens cadastrados
+    if (typeof ClassEngine !== 'undefined') {
+      const players = this.getAll();
+      let hasChanges = false;
+      players.forEach(p => {
+        if (!p.traits || p.traits.length === 0 || !p.traits.some(t => t.isClassFeature || t.source)) {
+          ClassEngine.applyClassProgression(p);
+          hasChanges = true;
+        }
+      });
+      if (hasChanges) {
+        DB.set('players', players);
+      }
+    }
     this.render();
   },
 
@@ -116,6 +130,7 @@ const SheetsModule = {
 
   /**
    * Altera o nível do personagem diretamente pela interface com 1 clique (+ ou -)
+   * e adiciona automaticamente as novas características de classe/subclasse desbloqueadas.
    */
   changeLevel(id, delta) {
     const char = this.getById(id);
@@ -128,11 +143,17 @@ const SheetsModule = {
     char.level = newLevel;
     char.proficiencyBonus = this.calculateProficiency(newLevel);
 
-    // Atualiza automaticamente os dados de vida
-    if (char.hitDice) {
-      char.hitDice = char.hitDice.replace(/^\d+d/, `${newLevel}d`);
+    // Aplica a progressão automática de classe, subclasse, dados de vida e magias via ClassEngine
+    let newFeaturesList = [];
+    if (typeof ClassEngine !== 'undefined') {
+      const prog = ClassEngine.applyClassProgression(char);
+      newFeaturesList = prog.newFeatures || [];
     } else {
-      char.hitDice = `${newLevel}d8`;
+      if (char.hitDice) {
+        char.hitDice = char.hitDice.replace(/^\d+d/, `${newLevel}d`);
+      } else {
+        char.hitDice = `${newLevel}d8`;
+      }
     }
 
     this.save(char);
@@ -144,9 +165,27 @@ const SheetsModule = {
 
     if (delta > 0) {
       if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('critical');
-      App.showToast(`⚔️ ${char.name} subiu para o Nível ${newLevel}! (Bônus de Proficiência: +${char.proficiencyBonus})`);
+      const bonusMsg = newFeaturesList.length > 0
+        ? `\nNovos recursos desbloqueados: ${newFeaturesList.slice(0, 3).join(', ')}${newFeaturesList.length > 3 ? '...' : ''}!`
+        : '';
+      App.showToast(`⚔️ ${char.name} subiu para o Nível ${newLevel}! (Proficiência: +${char.proficiencyBonus}).${bonusMsg}`);
     } else {
       App.showToast(`${char.name} ajustado para o Nível ${newLevel}.`);
+    }
+  },
+
+  /**
+   * Sincroniza características e magias da classe diretamente a partir do modal de visualização
+   */
+  syncCharacterFeaturesFromModal(id) {
+    const char = this.getById(id);
+    if (!char) return;
+    if (typeof ClassEngine !== 'undefined') {
+      const prog = ClassEngine.applyClassProgression(char);
+      this.save(char);
+      this.openDetailModal(id);
+      if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('spell');
+      App.showToast(`⚡ Recursos de ${char.characterClass || 'classe'} sincronizados para o Nível ${char.level}!`);
     }
   },
 
@@ -488,10 +527,18 @@ const SheetsModule = {
 
         <!-- Aba de Características -->
         <div class="sheet-tab-content" id="subtab-traits" style="display: none;">
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 0.75rem;">
+            <button class="btn btn-xs btn-accent" onclick="SheetsModule.syncCharacterFeaturesFromModal('${char.id}')">
+              ⚡ Sincronizar Recursos da Classe (${char.characterClass || 'Classe'} Nv ${char.level})
+            </button>
+          </div>
           <div class="traits-list">
             ${(char.traits || []).map(t => `
               <div class="trait-item">
-                <div class="trait-name">${t.name}</div>
+                <div class="trait-name">
+                  ${t.name}
+                  ${t.source ? `<span class="badge badge-accent" style="font-size: 0.72rem; margin-left: 0.5rem;">${t.source}</span>` : ''}
+                </div>
                 <div class="trait-desc">${t.desc}</div>
               </div>
             `).join('') || '<p class="text-muted">Nenhuma característica especial registrada.</p>'}
@@ -707,19 +754,39 @@ const SheetsModule = {
               <input type="text" id="ef-race" class="input" value="${char.race || ''}" placeholder="Ex: Meio-Orc, Elfo, Humano" />
             </div>
             <div class="form-group">
-              <label>Classe</label>
-              <input type="text" id="ef-class" class="input" value="${char.characterClass || ''}" placeholder="Ex: Bárbaro, Druida, Mago" />
+              <label>Classe (D&D 5e)</label>
+              <select id="ef-class-select" class="select" onchange="SheetsModule.onEditorClassSelectChange()">
+                ${['Bárbaro', 'Bardo', 'Clérigo', 'Druida', 'Guerreiro', 'Monge', 'Paladino', 'Patrulheiro', 'Ladino', 'Feiticeiro', 'Bruxo', 'Mago'].map(cName => {
+                  const sel = (char.characterClass || '').toLowerCase().includes(cName.toLowerCase().slice(0, 4)) ? 'selected' : '';
+                  return `<option value="${cName}" ${sel}>${cName}</option>`;
+                }).join('')}
+                <option value="custom" ${!['Bárbaro', 'Bardo', 'Clérigo', 'Druida', 'Guerreiro', 'Monge', 'Paladino', 'Patrulheiro', 'Ladino', 'Feiticeiro', 'Bruxo', 'Mago'].some(c => (char.characterClass || '').toLowerCase().includes(c.toLowerCase().slice(0, 4))) ? 'selected' : ''}>Outra / Personalizada</option>
+              </select>
+              <input type="text" id="ef-class-custom" class="input" value="${char.characterClass || ''}" placeholder="Nome da classe personalizada" style="display: none; margin-top: 0.35rem;" />
             </div>
             <div class="form-group">
               <label>Subclasse / Caminho</label>
-              <input type="text" id="ef-subclass" class="input" value="${char.subclass || ''}" placeholder="Ex: Caminho do Furioso, Círculo da Lua" />
+              <select id="ef-subclass-select" class="select" onchange="SheetsModule.onEditorSubclassSelectChange()">
+                <!-- Preenchido via populateSubclassSelect -->
+              </select>
+              <input type="text" id="ef-subclass-custom" class="input" value="${char.subclass || ''}" placeholder="Nome da subclasse personalizada" style="display: none; margin-top: 0.35rem;" />
             </div>
+          </div>
+
+          <div style="background: rgba(217, 119, 6, 0.08); border: 1px solid rgba(217, 119, 6, 0.3); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+            <div>
+              <strong style="color: var(--text-gold); display: block; font-size: 0.9rem;">⚡ Auto-Preenchimento por Nível</strong>
+              <small class="text-muted">Adiciona automaticamente todas as características oficiais da classe, subclasse, dados de vida e espaços de magia até o nível selecionado.</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-accent" onclick="SheetsModule.syncEditorClassFeatures(true)">
+              Sincronizar Recursos (Nv <span id="ef-sync-lvl-badge">${char.level || 1}</span>)
+            </button>
           </div>
 
           <div class="form-grid-4">
             <div class="form-group">
               <label>Nível (1 a 20) *</label>
-              <input type="number" id="ef-level" class="input" value="${char.level || 1}" min="1" max="20" required onchange="SheetsModule.updateEditorProficiencyPreview()" />
+              <input type="number" id="ef-level" class="input" value="${char.level || 1}" min="1" max="20" required oninput="SheetsModule.onEditorLevelChange()" />
             </div>
             <div class="form-group">
               <label>XP (Experiência)</label>
@@ -854,14 +921,20 @@ const SheetsModule = {
 
         <!-- ABA 6: Talentos & Características -->
         <div class="editor-tab-pane" id="edtab-traits">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <p class="text-muted" style="margin: 0; font-size: 0.85rem;">Habilidades raciais, de classe e talentos especiais:</p>
-            <button type="button" class="btn btn-xs btn-outline" onclick="SheetsModule.addEditorTraitRow()">+ Adicionar Habilidade</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <p class="text-muted" style="margin: 0; font-size: 0.85rem;">Habilidades raciais, de classe e talentos especiais:</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-xs btn-accent" onclick="SheetsModule.syncEditorClassFeatures(true)">⚡ Auto-Preencher Classe (Nv <span id="ef-trait-sync-lvl">${char.level || 1}</span>)</button>
+              <button type="button" class="btn btn-xs btn-outline" onclick="SheetsModule.addEditorTraitRow()">+ Adicionar Habilidade</button>
+            </div>
           </div>
           <div id="editor-traits-list">
-            ${(char.traits && char.traits.length > 0 ? char.traits : [{ name: 'Habilidade Especial', desc: 'Descrição do efeito' }]).map((t, idx) => `
+            ${(char.traits && char.traits.length > 0 ? char.traits : [{ name: 'Habilidade Especial', desc: 'Descrição do efeito', source: '' }]).map((t, idx) => `
               <div class="dynamic-trait-row" id="trait-row-${idx}">
                 <input type="text" class="input input-sm trait-name" value="${t.name}" placeholder="Nome da Habilidade" />
+                <input type="text" class="input input-sm trait-source" value="${t.source || ''}" placeholder="Origem (ex: ${char.characterClass || 'Classe'})" />
                 <input type="text" class="input input-sm trait-desc" value="${t.desc}" placeholder="Descrição detalhada do poder/talento" />
                 <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
               </div>
@@ -951,6 +1024,12 @@ const SheetsModule = {
     `;
 
     modal.classList.add('active');
+    this.populateSubclassSelect(this.getEditorClassName(), char.subclass);
+    const clsSelect = document.getElementById('ef-class-select');
+    if (clsSelect && clsSelect.value === 'custom') {
+      const customClsInput = document.getElementById('ef-class-custom');
+      if (customClsInput) customClsInput.style.display = 'block';
+    }
   },
 
   switchEditorTab(tabKey, btn) {
@@ -977,14 +1056,18 @@ const SheetsModule = {
     list.appendChild(row);
   },
 
-  addEditorTraitRow() {
+  addEditorTraitRow(trait = null) {
     const list = document.getElementById('editor-traits-list');
     if (!list) return;
+    const tName = trait ? trait.name : '';
+    const tSource = trait ? (trait.source || '') : '';
+    const tDesc = trait ? trait.desc : '';
     const row = document.createElement('div');
     row.className = 'dynamic-trait-row';
     row.innerHTML = `
-      <input type="text" class="input input-sm trait-name" placeholder="Nome da Habilidade" />
-      <input type="text" class="input input-sm trait-desc" placeholder="Descrição do poder/talento" />
+      <input type="text" class="input input-sm trait-name" placeholder="Nome da Habilidade" value="${tName}" />
+      <input type="text" class="input input-sm trait-source" placeholder="Origem (ex: Bárbaro Nv 1)" value="${tSource}" />
+      <input type="text" class="input input-sm trait-desc" placeholder="Descrição do poder/talento" value="${tDesc}" />
       <button type="button" class="remove-btn" onclick="this.parentElement.remove()" title="Remover">✕</button>
     `;
     list.appendChild(row);
@@ -1027,6 +1110,191 @@ const SheetsModule = {
     });
   },
 
+  populateSubclassSelect(selectedClass, currentSubclass) {
+    const subSelect = document.getElementById('ef-subclass-select');
+    const customInput = document.getElementById('ef-subclass-custom');
+    if (!subSelect) return;
+
+    if (typeof ClassEngine === 'undefined') return;
+    const subclasses = ClassEngine.getSubclassesForClass(selectedClass);
+
+    subSelect.innerHTML = '';
+    const optNone = document.createElement('option');
+    optNone.value = '';
+    optNone.textContent = '(Nenhuma ou Inicial)';
+    subSelect.appendChild(optNone);
+
+    let foundMatch = false;
+    subclasses.forEach(subName => {
+      const opt = document.createElement('option');
+      opt.value = subName;
+      opt.textContent = subName;
+      if (currentSubclass && (currentSubclass.toLowerCase().includes(subName.toLowerCase()) || subName.toLowerCase().includes(currentSubclass.toLowerCase()))) {
+        opt.selected = true;
+        foundMatch = true;
+      }
+      subSelect.appendChild(opt);
+    });
+
+    const optCustom = document.createElement('option');
+    optCustom.value = 'custom';
+    optCustom.textContent = 'Outra / Personalizada...';
+    if (!foundMatch && currentSubclass) {
+      optCustom.selected = true;
+      if (customInput) {
+        customInput.style.display = 'block';
+        customInput.value = currentSubclass;
+      }
+    }
+    subSelect.appendChild(optCustom);
+  },
+
+  onEditorClassSelectChange() {
+    const classSelect = document.getElementById('ef-class-select');
+    const customInput = document.getElementById('ef-class-custom');
+    if (!classSelect) return;
+
+    let selectedClass = classSelect.value;
+    if (selectedClass === 'custom') {
+      if (customInput) customInput.style.display = 'block';
+    } else {
+      if (customInput) {
+        customInput.style.display = 'none';
+        customInput.value = selectedClass;
+      }
+    }
+
+    const currentSub = this.getEditorSubclassName();
+    this.populateSubclassSelect(selectedClass, currentSub);
+
+    // Atualiza Dado de Vida de acordo com a nova classe
+    const clsData = typeof ClassEngine !== 'undefined' ? ClassEngine.getClassData(selectedClass) : null;
+    const level = parseInt(document.getElementById('ef-level')?.value, 10) || 1;
+    const hitDiceInput = document.getElementById('ef-hitdice');
+    if (hitDiceInput && clsData) {
+      hitDiceInput.value = `${level}${clsData.hitDie}`;
+    }
+
+    // Auto sincroniza os recursos se a classe mudar
+    this.syncEditorClassFeatures(false);
+  },
+
+  onEditorSubclassSelectChange() {
+    const subSelect = document.getElementById('ef-subclass-select');
+    const customInput = document.getElementById('ef-subclass-custom');
+    if (!subSelect) return;
+
+    if (subSelect.value === 'custom') {
+      if (customInput) customInput.style.display = 'block';
+    } else {
+      if (customInput) {
+        customInput.style.display = 'none';
+        customInput.value = subSelect.value;
+      }
+    }
+    this.syncEditorClassFeatures(false);
+  },
+
+  onEditorLevelChange() {
+    const levelInput = document.getElementById('ef-level');
+    const level = parseInt(levelInput ? levelInput.value : 1, 10) || 1;
+
+    const syncBadge1 = document.getElementById('ef-sync-lvl-badge');
+    if (syncBadge1) syncBadge1.textContent = level;
+    const syncBadge2 = document.getElementById('ef-trait-sync-lvl');
+    if (syncBadge2) syncBadge2.textContent = level;
+
+    // Atualiza Dado de Vida
+    const hitDiceInput = document.getElementById('ef-hitdice');
+    if (hitDiceInput) {
+      const clsName = this.getEditorClassName();
+      const clsData = typeof ClassEngine !== 'undefined' ? ClassEngine.getClassData(clsName) : null;
+      const die = clsData ? clsData.hitDie : 'd8';
+      hitDiceInput.value = `${level}${die}`;
+    }
+
+    this.updateEditorProficiencyPreview();
+    // Auto-atualiza os recursos para o novo nível
+    this.syncEditorClassFeatures(false);
+  },
+
+  getEditorClassName() {
+    const classSelect = document.getElementById('ef-class-select');
+    const customInput = document.getElementById('ef-class-custom');
+    if (classSelect && classSelect.value === 'custom') {
+      return (customInput ? customInput.value.trim() : '') || 'Guerreiro';
+    }
+    return classSelect ? classSelect.value : (customInput ? customInput.value.trim() : '');
+  },
+
+  getEditorSubclassName() {
+    const subSelect = document.getElementById('ef-subclass-select');
+    const customInput = document.getElementById('ef-subclass-custom');
+    if (subSelect && subSelect.value === 'custom') {
+      return customInput ? customInput.value.trim() : '';
+    }
+    return subSelect ? subSelect.value : (customInput ? customInput.value.trim() : '');
+  },
+
+  syncEditorClassFeatures(showToast = false) {
+    if (typeof ClassEngine === 'undefined') return;
+
+    const className = this.getEditorClassName();
+    const subclassName = this.getEditorSubclassName();
+    const level = parseInt(document.getElementById('ef-level')?.value, 10) || 1;
+
+    // Obtém características da classe até o nível
+    const classFeatures = ClassEngine.getClassFeatures(className, subclassName, level);
+    if (!classFeatures || classFeatures.length === 0) {
+      if (showToast) App.showToast('Nenhuma característica oficial encontrada para ' + className);
+      return;
+    }
+
+    // Coleta características customizadas (que o usuário possa ter adicionado manualmente)
+    const list = document.getElementById('editor-traits-list');
+    if (!list) return;
+
+    const currentRows = Array.from(list.querySelectorAll('.dynamic-trait-row'));
+    const customTraits = [];
+    const classTraitNames = new Set(classFeatures.map(f => ClassEngine.normalize(f.name)));
+
+    currentRows.forEach(row => {
+      const name = row.querySelector('.trait-name')?.value.trim();
+      const source = row.querySelector('.trait-source')?.value.trim();
+      const desc = row.querySelector('.trait-desc')?.value.trim();
+      if (name && !classTraitNames.has(ClassEngine.normalize(name))) {
+        customTraits.push({ name, source, desc });
+      }
+    });
+
+    // Reconstrói a lista com as características oficiais + customizadas
+    list.innerHTML = '';
+    // Adiciona traços customizados primeiro
+    customTraits.forEach(t => this.addEditorTraitRow(t));
+    // Adiciona todas as características oficiais até o nível
+    classFeatures.forEach(cf => {
+      this.addEditorTraitRow({
+        name: cf.name,
+        source: `${cf.source} Nv ${cf.level}`,
+        desc: cf.desc
+      });
+    });
+
+    // Sincroniza Espaços de Magia na Aba 7 se aplicável
+    const slots = ClassEngine.calculateSpellSlots(className, subclassName, level);
+    for (let c = 1; c <= 9; c++) {
+      const maxInput = document.getElementById(`ef-slot-max-${c}`);
+      if (maxInput && slots[c]) {
+        maxInput.value = slots[c].max;
+      }
+    }
+
+    if (showToast) {
+      if (typeof AudioStudio !== 'undefined') AudioStudio.playSFX('spell');
+      App.showToast(`⚡ ${classFeatures.length} características de ${className} sincronizadas para o Nível ${level}!`);
+    }
+  },
+
   handleFullFormSubmit(e, id, isEdit) {
     e.preventDefault();
     const existing = isEdit ? this.getById(id) : {};
@@ -1066,10 +1334,14 @@ const SheetsModule = {
     const traits = [];
     document.querySelectorAll('#editor-traits-list .dynamic-trait-row').forEach(row => {
       const name = row.querySelector('.trait-name')?.value.trim();
+      const source = row.querySelector('.trait-source')?.value.trim() || '';
+      const desc = row.querySelector('.trait-desc')?.value.trim() || '';
       if (name) {
         traits.push({
           name: name,
-          desc: row.querySelector('.trait-desc')?.value.trim() || ''
+          source: source,
+          desc: desc,
+          isClassFeature: !!source
         });
       }
     });
@@ -1098,14 +1370,17 @@ const SheetsModule = {
       }
     });
 
+    const characterClass = this.getEditorClassName();
+    const subclass = this.getEditorSubclassName();
+
     const updatedChar = {
       ...existing,
       id: id || ('char_' + Date.now()),
       name: document.getElementById('ef-name').value.trim(),
       playerName: document.getElementById('ef-player').value.trim(),
       race: document.getElementById('ef-race').value.trim(),
-      characterClass: document.getElementById('ef-class').value.trim(),
-      subclass: document.getElementById('ef-subclass').value.trim(),
+      characterClass: characterClass,
+      subclass: subclass,
       level: level,
       xp: parseInt(document.getElementById('ef-xp').value, 10) || 0,
       alignment: document.getElementById('ef-alignment').value.trim(),
